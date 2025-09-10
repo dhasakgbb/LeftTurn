@@ -96,19 +96,19 @@ class ExcelService:
         Returns:
             Cleaned DataFrame
         """
-        # Remove completely empty rows
-        df = df.dropna(how='all')
-        
-        # Strip whitespace from string columns
-        string_columns = df.select_dtypes(include=['object']).columns
-        df[string_columns] = df[string_columns].astype(str).apply(lambda x: x.str.strip())
-        
-        # Replace 'nan' strings with actual NaN
-        df = df.replace('nan', pd.NA)
-        
-        # Clean column names
+        # Clean column names first for consistent access
         df.columns = [str(col).strip() for col in df.columns]
-        
+
+        # Trim whitespace from string cells
+        obj_cols = df.select_dtypes(include="object").columns
+        df[obj_cols] = df[obj_cols].apply(lambda c: c.astype(str).str.strip())
+
+        # Normalize placeholders for missing values
+        df[obj_cols] = df[obj_cols].replace(r"(?i)^\s*(?:nan|none)?\s*$", pd.NA, regex=True)
+
+        # Drop rows that are entirely empty after normalization
+        df.dropna(how="all", inplace=True)
+
         return df
     
     def get_file_hash(self, file_data: bytes) -> str:
