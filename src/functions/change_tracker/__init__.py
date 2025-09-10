@@ -7,7 +7,7 @@ from src.services.excel_service import ExcelService
 from src.services.validation_service import ValidationService
 from src.services.storage_service import StorageService
 from src.services.email_service import EmailService
-from src.utils.helpers import generate_file_hash, log_function_execution
+from src.utils.helpers import generate_file_hash, log_function_execution, get_correlation_id
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ async def verify_changes(req: func.HttpRequest) -> func.HttpResponse:
     }
     """
     start_time = datetime.now()
+    correlation_id = get_correlation_id(req)
     
     try:
         try:
@@ -84,7 +85,7 @@ async def verify_changes(req: func.HttpRequest) -> func.HttpResponse:
                 headers={"Content-Type": "application/json"}
             )
         
-        logger.info(f"Verifying changes for file: {original_file_id}")
+        logger.info(f"[{correlation_id}] Verifying changes for file: {original_file_id}")
         
         # Parse updated Excel file
         updated_sheets_dict, updated_metadata = excel_service.parse_excel_file(
@@ -192,7 +193,8 @@ async def verify_changes(req: func.HttpRequest) -> func.HttpResponse:
             {
                 "original_file_id": original_file_id,
                 "changes_successful": changes_successful,
-                "remaining_errors": updated_validation_result.total_errors
+                "remaining_errors": updated_validation_result.total_errors,
+                "correlation_id": correlation_id
             }
         )
         
@@ -204,7 +206,7 @@ async def verify_changes(req: func.HttpRequest) -> func.HttpResponse:
         
     except Exception as e:
         end_time = datetime.now()
-        log_function_execution("verify_changes", start_time, end_time, False)
+        log_function_execution("verify_changes", start_time, end_time, False, {"correlation_id": correlation_id})
         
         logger.error(f"Error verifying changes: {str(e)}")
         
@@ -234,26 +236,29 @@ async def get_change_history(req: func.HttpRequest) -> func.HttpResponse:
                 headers={"Content-Type": "application/json"}
             )
         
-        # This would query the storage service for change tracking records
-        # For now, return a mock response
-        
-        change_history = {
+        storage_service = StorageService()
+        records = storage_service.get_change_history(file_id)
+
+        response = {
             "file_id": file_id,
             "changes": [
                 {
-                    "change_id": f"change_{int(datetime.now().timestamp())}",
-                    "timestamp": datetime.now().isoformat(),
-                    "description": "Initial validation failed",
-                    "status": "failed",
-                    "error_count": 5
+                    "tracking_id": r.tracking_id,
+                    "timestamp": (r.change_timestamp.isoformat() if r.change_timestamp else None),
+                    "description": r.change_description,
+                    "verified": r.verified,
+                    "original_file_hash": r.original_file_hash,
+                    "updated_file_hash": r.updated_file_hash,
+                    "validation_id": r.validation_id,
                 }
+                for r in records
             ],
-            "current_status": "pending_correction",
-            "last_updated": datetime.now().isoformat()
+            "total_changes": len(records),
+            "last_updated": (records[0].change_timestamp.isoformat() if records and records[0].change_timestamp else None),
         }
-        
+
         return func.HttpResponse(
-            json.dumps(change_history),
+            json.dumps(response),
             status_code=200,
             headers={"Content-Type": "application/json"}
         )

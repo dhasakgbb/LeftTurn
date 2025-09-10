@@ -96,6 +96,18 @@ The agent requires the following environment variables:
 - `AZURE_OPENAI_API_KEY`: Azure OpenAI API key
 - `AZURE_OPENAI_MODEL`: Model name (e.g., gpt-4.1)
 
+Optional configuration (with defaults):
+
+- `SUPPORTED_FILE_TYPES`: Comma-separated list of allowed file extensions (without the dot). Default: `xlsx`.
+- `MAX_FILE_SIZE_MB`: Maximum upload size in megabytes for `/api/process`. Default: `50`.
+- `DEFAULT_SENDER_EMAIL`: Sender address for email notifications. Default: `noreply@yourdomain.com`.
+
+Notes:
+
+- Only `.xlsx` is supported by default. Legacy `.xls` is not enabled because the configured reader uses `openpyxl`.
+- Requests exceeding `MAX_FILE_SIZE_MB` return HTTP 413 (Payload Too Large).
+- Timestamps in responses, storage records, and emails are UTC.
+
 ## License
 
 MIT License

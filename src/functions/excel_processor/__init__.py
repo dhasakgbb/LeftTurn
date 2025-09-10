@@ -7,7 +7,7 @@ from src.services.validation_service import ValidationService
 from src.services.email_service import EmailService
 from src.services.storage_service import StorageService
 from src.models.validation_models import ProcessingRequest, ValidationRule
-from src.utils.helpers import generate_file_hash, log_function_execution
+from src.utils.helpers import generate_file_hash, log_function_execution, get_correlation_id
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ async def process_excel_file(req: func.HttpRequest) -> func.HttpResponse:
     }
     """
     start_time = datetime.now()
+    correlation_id = get_correlation_id(req)
     
     try:
         # Parse request
@@ -100,7 +101,7 @@ async def process_excel_file(req: func.HttpRequest) -> func.HttpResponse:
                 headers={"Content-Type": "application/json"}
             )
         
-        logger.info(f"Processing Excel file: {filename}")
+        logger.info(f"[{correlation_id}] Processing Excel file: {filename}")
         
         # Parse Excel file
         sheets_dict, metadata = excel_service.parse_excel_file(file_data, filename)
@@ -208,7 +209,8 @@ async def process_excel_file(req: func.HttpRequest) -> func.HttpResponse:
             {
                 "file_id": metadata.file_id,
                 "validation_status": validation_result.status.value,
-                "errors": validation_result.total_errors
+                "errors": validation_result.total_errors,
+                "correlation_id": correlation_id
             }
         )
         
@@ -220,7 +222,7 @@ async def process_excel_file(req: func.HttpRequest) -> func.HttpResponse:
         
     except Exception as e:
         end_time = datetime.now()
-        log_function_execution("process_excel_file", start_time, end_time, False)
+        log_function_execution("process_excel_file", start_time, end_time, False, {"correlation_id": correlation_id})
         
         logger.error(f"Error processing Excel file: {str(e)}")
         
@@ -262,9 +264,8 @@ async def get_processing_status(req: func.HttpRequest) -> func.HttpResponse:
             )
         
         # Get latest validation result
-        # This would need to be implemented in storage service
-        # For now, return basic file info
-        
+        latest = storage_service.get_latest_validation_for_file(file_id)
+
         response_data = {
             "file_id": file_id,
             "filename": metadata.filename,
@@ -274,6 +275,14 @@ async def get_processing_status(req: func.HttpRequest) -> func.HttpResponse:
             "total_columns": metadata.total_columns,
             "sheet_names": metadata.sheet_names
         }
+        if latest:
+            response_data.update({
+                "latest_validation_id": latest.validation_id,
+                "latest_status": latest.status.value,
+                "latest_total_errors": latest.total_errors,
+                "latest_total_warnings": latest.total_warnings,
+                "latest_timestamp": latest.timestamp.isoformat(),
+            })
         
         return func.HttpResponse(
             json.dumps(response_data),

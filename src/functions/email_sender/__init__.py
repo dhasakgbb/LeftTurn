@@ -5,7 +5,7 @@ from datetime import datetime
 from src.services.email_service import EmailService
 from src.services.storage_service import StorageService
 from src.models.validation_models import ValidationResult, ValidationStatus
-from src.utils.helpers import log_function_execution, validate_email_format
+from src.utils.helpers import log_function_execution, validate_email_format, get_correlation_id
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ async def send_notification(req: func.HttpRequest) -> func.HttpResponse:
     }
     """
     start_time = datetime.now()
+    correlation_id = get_correlation_id(req)
     
     try:
         try:
@@ -61,7 +62,7 @@ async def send_notification(req: func.HttpRequest) -> func.HttpResponse:
             if validate_email_format(email):
                 valid_emails.append(email)
             else:
-                logger.warning(f"Invalid email format: {email}")
+                logger.warning(f"[{correlation_id}] Invalid email format: {email}")
         
         if not valid_emails:
             return func.HttpResponse(
@@ -129,7 +130,8 @@ async def send_notification(req: func.HttpRequest) -> func.HttpResponse:
             {
                 "validation_id": validation_id,
                 "notification_type": notification_type,
-                "recipients": len(valid_emails)
+                "recipients": len(valid_emails),
+                "correlation_id": correlation_id
             }
         )
         
@@ -141,7 +143,7 @@ async def send_notification(req: func.HttpRequest) -> func.HttpResponse:
         
     except Exception as e:
         end_time = datetime.now()
-        log_function_execution("send_notification", start_time, end_time, False)
+        log_function_execution("send_notification", start_time, end_time, False, {"correlation_id": correlation_id})
         
         logger.error(f"Error sending notification: {str(e)}")
         

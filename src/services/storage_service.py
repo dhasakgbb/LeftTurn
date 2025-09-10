@@ -373,9 +373,8 @@ class StorageService:
                 return None
             item = items[0]
             
-            # Convert back to ValidationResult object
-            # This would need proper deserialization logic
-            return ValidationResult(**item)
+            # Deserialize to ValidationResult
+            return self._deserialize_validation_result(item)
             
         except Exception as e:
             logger.error(f"Error retrieving validation result {validation_id}: {str(e)}")
@@ -408,3 +407,108 @@ class StorageService:
         except Exception as e:
             logger.error(f"Error retrieving file metadata {file_id}: {str(e)}")
             return None
+
+    def get_latest_validation_for_file(self, file_id: str) -> Optional[ValidationResult]:
+        """Get the most recent validation result for a file."""
+        if not self.cosmos_client:
+            return None
+        try:
+            database = self.cosmos_client.get_database_client(self.database_name)
+            container = database.get_container_client(self.containers["validations"])
+            # Query within the partition for latest by timestamp
+            query = (
+                "SELECT TOP 1 * FROM c WHERE c.file_id = @file_id ORDER BY c.timestamp DESC"
+            )
+            items = list(
+                container.query_items(
+                    query=query,
+                    parameters=[{"name": "@file_id", "value": file_id}],
+                    enable_cross_partition_query=False,
+                )
+            )
+            if not items:
+                return None
+            return self._deserialize_validation_result(items[0])
+        except Exception as e:
+            logger.error(f"Error retrieving latest validation for {file_id}: {str(e)}")
+            return None
+
+    def get_change_history(self, file_id: str, limit: int = 50) -> List[ChangeTrackingRecord]:
+        """Retrieve change tracking history for a file."""
+        results: List[ChangeTrackingRecord] = []
+        if not self.cosmos_client:
+            return results
+        try:
+            database = self.cosmos_client.get_database_client(self.database_name)
+            container = database.get_container_client(self.containers["tracking"])
+            query = (
+                "SELECT TOP @limit * FROM c WHERE c.file_id = @file_id ORDER BY c.change_timestamp DESC"
+            )
+            items = list(
+                container.query_items(
+                    query=query,
+                    parameters=[
+                        {"name": "@file_id", "value": file_id},
+                        {"name": "@limit", "value": limit},
+                    ],
+                    enable_cross_partition_query=False,
+                )
+            )
+            for it in items:
+                # Some records may not have change_timestamp yet
+                if it.get("change_timestamp"):
+                    try:
+                        it["change_timestamp"] = datetime.fromisoformat(it["change_timestamp"])  # type: ignore
+                    except Exception:
+                        pass
+                results.append(ChangeTrackingRecord(**it))
+        except Exception as e:
+            logger.error(f"Error retrieving change history for {file_id}: {str(e)}")
+        return results
+
+    def _deserialize_validation_result(self, item: Dict[str, Any]) -> ValidationResult:
+        """Convert a stored dict into a ValidationResult model."""
+        try:
+            # Normalize timestamp
+            if isinstance(item.get("timestamp"), str):
+                try:
+                    item["timestamp"] = datetime.fromisoformat(item["timestamp"])  # type: ignore
+                except Exception:
+                    pass
+            # Convert status string to enum value if needed
+            if isinstance(item.get("status"), str):
+                status_str = item["status"]
+                if status_str.lower() == "passed":
+                    item["status"] = ValidationStatus.PASSED
+                elif status_str.lower() == "failed":
+                    item["status"] = ValidationStatus.FAILED
+                elif status_str.lower() == "pending":
+                    item["status"] = ValidationStatus.PENDING
+                else:
+                    item["status"] = ValidationStatus.PENDING
+            # Convert errors and warnings dicts to models if necessary
+            def map_err(e: Any) -> Any:
+                try:
+                    return e if isinstance(e, dict) is False else e
+                except Exception:
+                    return e
+            if isinstance(item.get("errors"), list):
+                item["errors"] = [map_err(e) for e in item["errors"]]
+            if isinstance(item.get("warnings"), list):
+                item["warnings"] = [map_err(w) for w in item["warnings"]]
+            # Pydantic will coerce dicts into the embedded models
+            return ValidationResult(**item)
+        except Exception as e:
+            logger.error(f"Failed to deserialize ValidationResult {item.get('id')}: {str(e)}")
+            # Fallback minimal object to avoid crashing callers
+            return ValidationResult(
+                file_id=item.get("file_id", "unknown"),
+                validation_id=item.get("id", item.get("validation_id", "unknown")),
+                status=ValidationStatus.PENDING,
+                timestamp=datetime.now(timezone.utc),
+                errors=[],
+                warnings=[],
+                total_errors=item.get("total_errors", 0),
+                total_warnings=item.get("total_warnings", 0),
+                processed_rows=item.get("processed_rows", 0),
+            )

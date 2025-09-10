@@ -2,6 +2,7 @@ import hashlib
 import re
 import logging
 from typing import List, Dict, Any, Optional
+import uuid
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -205,6 +206,16 @@ def log_function_execution(func_name: str, start_time: datetime,
         logger.info(log_message)
     else:
         logger.error(log_message)
+
+def get_correlation_id(req) -> str:
+    """Retrieve or generate a correlation ID from an HTTP request."""
+    try:
+        cid = req.headers.get('x-correlation-id')  # type: ignore[attr-defined]
+        if cid and isinstance(cid, str) and len(cid) >= 8:
+            return cid
+    except Exception:
+        pass
+    return str(uuid.uuid4())
 
 class ConfigurationError(Exception):
     """Custom exception for configuration errors"""
