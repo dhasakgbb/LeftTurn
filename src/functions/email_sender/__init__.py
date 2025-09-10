@@ -28,7 +28,14 @@ async def send_notification(req: func.HttpRequest) -> func.HttpResponse:
     start_time = datetime.now()
     
     try:
-        req_body = req.get_json()
+        try:
+            req_body = req.get_json()
+        except Exception:
+            return func.HttpResponse(
+                json.dumps({"error": "Invalid JSON in request body"}),
+                status_code=400,
+                headers={"Content-Type": "application/json"}
+            )
         if not req_body:
             return func.HttpResponse(
                 json.dumps({"error": "Request body is required"}),
@@ -86,9 +93,14 @@ async def send_notification(req: func.HttpRequest) -> func.HttpResponse:
             notifications_sent.extend(notifications)
             
         elif notification_type == 'success':
-            # Extract file_id from validation_id (assuming format: val_file_id_timestamp)
-            file_id = validation_id.split('_')[1] if '_' in validation_id else validation_id
-            
+            # Prefer retrieving the validation to get the true file_id
+            file_id = None
+            validation_result = storage_service.get_validation_result(validation_id)
+            if validation_result:
+                file_id = validation_result.file_id
+            else:
+                # Fallback: use provided validation_id as-is
+                file_id = validation_id
             # Send success notifications
             notifications = email_service.send_validation_success_notification(
                 file_id, valid_emails
@@ -158,7 +170,14 @@ async def send_custom_email(req: func.HttpRequest) -> func.HttpResponse:
     }
     """
     try:
-        req_body = req.get_json()
+        try:
+            req_body = req.get_json()
+        except Exception:
+            return func.HttpResponse(
+                json.dumps({"error": "Invalid JSON in request body"}),
+                status_code=400,
+                headers={"Content-Type": "application/json"}
+            )
         if not req_body:
             return func.HttpResponse(
                 json.dumps({"error": "Request body is required"}),

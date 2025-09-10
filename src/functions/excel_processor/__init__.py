@@ -33,7 +33,14 @@ async def process_excel_file(req: func.HttpRequest) -> func.HttpResponse:
     
     try:
         # Parse request
-        req_body = req.get_json()
+        try:
+            req_body = req.get_json()
+        except Exception:
+            return func.HttpResponse(
+                json.dumps({"error": "Invalid JSON in request body"}),
+                status_code=400,
+                headers={"Content-Type": "application/json"}
+            )
         if not req_body:
             return func.HttpResponse(
                 json.dumps({"error": "Request body is required"}),
@@ -62,16 +69,33 @@ async def process_excel_file(req: func.HttpRequest) -> func.HttpResponse:
                 headers={"Content-Type": "application/json"}
             )
         
+        # Enforce file size limit if configured
+        import os
+        try:
+            max_mb = float(os.getenv('MAX_FILE_SIZE_MB', '50'))
+        except ValueError:
+            max_mb = 50.0
+        max_bytes = int(max_mb * 1024 * 1024)
+        if len(file_data) > max_bytes:
+            return func.HttpResponse(
+                json.dumps({
+                    "error": "File too large",
+                    "message": f"Max allowed size is {int(max_mb)} MB"
+                }),
+                status_code=413,
+                headers={"Content-Type": "application/json"}
+            )
+        
         # Initialize services
         excel_service = ExcelService()
         validation_service = ValidationService()
         email_service = EmailService()
         storage_service = StorageService()
         
-        # Validate file format
+        # Validate file format against allowed types
         if not excel_service.validate_file_format(filename):
             return func.HttpResponse(
-                json.dumps({"error": "Unsupported file format. Please use .xlsx or .xls"}),
+                json.dumps({"error": "Unsupported file format"}),
                 status_code=400,
                 headers={"Content-Type": "application/json"}
             )

@@ -30,7 +30,14 @@ async def verify_changes(req: func.HttpRequest) -> func.HttpResponse:
     start_time = datetime.now()
     
     try:
-        req_body = req.get_json()
+        try:
+            req_body = req.get_json()
+        except Exception:
+            return func.HttpResponse(
+                json.dumps({"error": "Invalid JSON in request body"}),
+                status_code=400,
+                headers={"Content-Type": "application/json"}
+            )
         if not req_body:
             return func.HttpResponse(
                 json.dumps({"error": "Request body is required"}),
@@ -277,7 +284,14 @@ async def compare_files(req: func.HttpRequest) -> func.HttpResponse:
     }
     """
     try:
-        req_body = req.get_json()
+        try:
+            req_body = req.get_json()
+        except Exception:
+            return func.HttpResponse(
+                json.dumps({"error": "Invalid JSON in request body"}),
+                status_code=400,
+                headers={"Content-Type": "application/json"}
+            )
         if not req_body:
             return func.HttpResponse(
                 json.dumps({"error": "Request body is required"}),

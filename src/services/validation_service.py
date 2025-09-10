@@ -1,11 +1,17 @@
 import pandas as pd
 import logging
 import os
-from typing import List, Dict, Any
-from datetime import datetime
-from azure.ai.inference import ChatCompletionsClient
-from azure.ai.inference.models import SystemMessage, UserMessage
-from azure.core.credentials import AzureKeyCredential
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
+try:
+    from azure.ai.inference import ChatCompletionsClient
+    from azure.ai.inference.models import SystemMessage, UserMessage
+    from azure.core.credentials import AzureKeyCredential
+except Exception:  # pragma: no cover - allow running without Azure SDKs installed
+    ChatCompletionsClient = None  # type: ignore
+    SystemMessage = None  # type: ignore
+    UserMessage = None  # type: ignore
+    AzureKeyCredential = None  # type: ignore
 from src.models.validation_models import ValidationRule, ValidationError, ValidationResult, ValidationStatus
 
 logger = logging.getLogger(__name__)
@@ -17,9 +23,12 @@ class ValidationService:
         self.ai_client = self._initialize_ai_client()
         self.default_rules = self._get_default_validation_rules()
     
-    def _initialize_ai_client(self) -> ChatCompletionsClient:
+    def _initialize_ai_client(self) -> Optional[ChatCompletionsClient]:
         """Initialize Azure AI client"""
         try:
+            if ChatCompletionsClient is None or AzureKeyCredential is None:
+                logger.warning("Azure OpenAI SDK not available; AI suggestions disabled")
+                return None
             endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
             api_key = os.getenv("AZURE_OPENAI_API_KEY")
             
@@ -43,7 +52,10 @@ class ValidationService:
                 rule_name="Email Format Validation",
                 description="Validate email format",
                 rule_type="format",
-                parameters={"pattern": r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"},
+                parameters={
+                    "pattern": r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+                    "columns": ["email"]
+                },
                 severity="error"
             ),
             ValidationRule(
@@ -77,7 +89,7 @@ class ValidationService:
         Returns:
             ValidationResult object
         """
-        validation_id = f"val_{file_id}_{int(datetime.now().timestamp())}"
+        validation_id = f"val_{file_id}_{int(datetime.now(timezone.utc).timestamp())}"
         
         # Combine default and custom rules
         rules = self.default_rules.copy()
@@ -111,7 +123,7 @@ class ValidationService:
             file_id=file_id,
             validation_id=validation_id,
             status=status,
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             errors=errors,
             warnings=warnings,
             total_errors=len(errors),

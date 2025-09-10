@@ -1,10 +1,12 @@
+import os
 import pandas as pd
 import hashlib
 import io
 import logging
 from typing import Dict, List, Any, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 from src.models.validation_models import ExcelFileMetadata
+from src.utils.helpers import validate_email_format
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +14,9 @@ class ExcelService:
     """Service for handling Excel file operations"""
     
     def __init__(self):
-        self.supported_formats = ['.xlsx', '.xls']
+        # Load supported types from env, default to xlsx only (openpyxl)
+        env_types = os.getenv('SUPPORTED_FILE_TYPES', 'xlsx')
+        self.supported_formats = [f".{ext.strip().lower()}" for ext in env_types.split(',') if ext.strip()]
     
     def parse_excel_file(self, file_data: bytes, filename: str) -> Tuple[Dict[str, pd.DataFrame], ExcelFileMetadata]:
         """
@@ -38,12 +42,12 @@ class ExcelService:
             
             # Generate file ID from hash
             file_hash = hashlib.md5(file_data).hexdigest()
-            file_id = f"excel_{file_hash}_{int(datetime.now().timestamp())}"
+            file_id = f"excel_{file_hash}_{int(datetime.now(timezone.utc).timestamp())}"
             
             metadata = ExcelFileMetadata(
                 file_id=file_id,
                 filename=filename,
-                upload_timestamp=datetime.now(),
+                upload_timestamp=datetime.now(timezone.utc),
                 file_size=len(file_data),
                 sheet_names=list(sheets_dict.keys()),
                 total_rows=total_rows,
@@ -96,19 +100,19 @@ class ExcelService:
         Returns:
             Cleaned DataFrame
         """
-        # Remove completely empty rows
-        df = df.dropna(how='all')
-        
         # Strip whitespace from string columns
         string_columns = df.select_dtypes(include=['object']).columns
         df[string_columns] = df[string_columns].astype(str).apply(lambda x: x.str.strip())
         
-        # Replace 'nan' strings with actual NaN
-        df = df.replace('nan', pd.NA)
+        # Replace common null-like strings with actual NaN
+        df = df.replace({'nan': pd.NA, 'None': pd.NA, '': pd.NA})
         
         # Clean column names
         df.columns = [str(col).strip() for col in df.columns]
         
+        # Remove completely empty rows after cleaning
+        df = df.dropna(how='all')
+
         return df
     
     def get_file_hash(self, file_data: bytes) -> str:
@@ -154,11 +158,11 @@ class ExcelService:
             # Extract unique, non-null email addresses
             emails = df[email_field].dropna().unique().tolist()
             
-            # Basic email validation
+            # Validate with shared helper
             valid_emails = []
             for email in emails:
                 email_str = str(email).strip().lower()
-                if '@' in email_str and '.' in email_str:
+                if validate_email_format(email_str):
                     valid_emails.append(email_str)
             
             logger.info(f"Extracted {len(valid_emails)} valid email addresses")

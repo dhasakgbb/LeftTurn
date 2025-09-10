@@ -19,7 +19,7 @@ This project implements an intelligent Azure-based agent that processes Excel fi
 - [x] Configuration and deployment added
 
 ## Project Features
-- **Excel File Processing**: Parse and validate .xlsx/.xls files
+- **Excel File Processing**: Parse and validate .xlsx files
 - **AI-Powered Validation**: Uses Azure OpenAI for intelligent data validation and suggestions
 - **Email Notifications**: Automated email sending for validation failures and corrections
 - **Change Tracking**: Monitor and validate file corrections

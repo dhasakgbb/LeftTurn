@@ -1,8 +1,11 @@
 import logging
 import os
 from typing import List, Optional
-from datetime import datetime, timedelta
-from azure.communication.email import EmailClient
+from datetime import datetime, timedelta, timezone
+try:
+    from azure.communication.email import EmailClient
+except Exception:  # pragma: no cover - allow running without Azure SDKs installed
+    EmailClient = None  # type: ignore
 from src.models.validation_models import ValidationResult, EmailNotification
 
 logger = logging.getLogger(__name__)
@@ -66,12 +69,12 @@ class EmailService:
                 logger.error(f"Failed to send email to {recipient}: {str(e)}")
                 # Create failed notification record
                 notification = EmailNotification(
-                    notification_id=f"email_{int(datetime.now().timestamp())}",
+                    notification_id=f"email_{int(datetime.now(timezone.utc).timestamp())}",
                     file_id=validation_result.file_id,
                     validation_id=validation_result.validation_id,
                     recipient_email=recipient,
                     subject=subject,
-                    sent_timestamp=datetime.now(),
+                    sent_timestamp=datetime.now(timezone.utc),
                     delivery_status="failed"
                 )
                 notifications.append(notification)
@@ -101,14 +104,14 @@ class EmailService:
         
         # Create notification record
         notification = EmailNotification(
-            notification_id=f"email_{int(datetime.now().timestamp())}_{recipient.replace('@', '_')}",
+            notification_id=f"email_{int(datetime.now(timezone.utc).timestamp())}_{recipient.replace('@', '_')}",
             file_id=validation_result.file_id,
             validation_id=validation_result.validation_id,
             recipient_email=recipient,
             subject=subject,
-            sent_timestamp=datetime.now(),
+            sent_timestamp=datetime.now(timezone.utc),
             delivery_status="sent",
-            correction_deadline=datetime.now() + timedelta(days=3)  # 3 days to correct
+            correction_deadline=datetime.now(timezone.utc) + timedelta(days=3)  # 3 days to correct
         )
         
         logger.info(f"Email sent successfully to {recipient}: {result.message_id}")
@@ -155,7 +158,7 @@ class EmailService:
                     <li><strong>Total Errors:</strong> {validation_result.total_errors}</li>
                     <li><strong>Total Warnings:</strong> {validation_result.total_warnings}</li>
                     <li><strong>Rows Processed:</strong> {validation_result.processed_rows}</li>
-                    <li><strong>Validation Date:</strong> {validation_result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}</li>
+                    <li><strong>Validation Date (UTC):</strong> {validation_result.timestamp.strftime('%Y-%m-%d %H:%M:%S %Z')}</li>
                 </ul>
                 
                 <h3>Errors Found</h3>
@@ -203,12 +206,12 @@ Data Validation Failed
 
 Your submitted Excel file has failed data validation. Please review and correct the following issues:
 
-Validation Summary:
+Validation Summary (UTC):
 - File ID: {validation_result.file_id}
 - Total Errors: {validation_result.total_errors}
 - Total Warnings: {validation_result.total_warnings}
 - Rows Processed: {validation_result.processed_rows}
-- Validation Date: {validation_result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
+- Validation Date (UTC): {validation_result.timestamp.strftime('%Y-%m-%d %H:%M:%S %Z')}
 
 Errors Found:
 {errors_text}
@@ -266,12 +269,12 @@ This is an automated message from the Azure Excel Data Validation Agent.
                 result = poller.result()
                 
                 notification = EmailNotification(
-                    notification_id=f"success_{int(datetime.now().timestamp())}_{recipient.replace('@', '_')}",
+                    notification_id=f"success_{int(datetime.now(timezone.utc).timestamp())}_{recipient.replace('@', '_')}",
                     file_id=file_id,
                     validation_id="success",
                     recipient_email=recipient,
                     subject=subject,
-                    sent_timestamp=datetime.now(),
+                    sent_timestamp=datetime.now(timezone.utc),
                     delivery_status="sent"
                 )
                 notifications.append(notification)
@@ -302,7 +305,7 @@ This is an automated message from the Azure Excel Data Validation Agent.
                 <div class="success">
                     <p>✅ Your Excel file has passed all validation checks!</p>
                     <p><strong>File ID:</strong> {file_id}</p>
-                    <p><strong>Validation Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                    <p><strong>Validation Date (UTC):</strong> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')}</p>
                 </div>
                 <p>Your data has been successfully processed and is ready for use.</p>
             </div>
@@ -318,7 +321,7 @@ Data Validation Successful
 ✅ Your Excel file has passed all validation checks!
 
 File ID: {file_id}
-Validation Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Validation Date (UTC): {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')}
 
 Your data has been successfully processed and is ready for use.
         """

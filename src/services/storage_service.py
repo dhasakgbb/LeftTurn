@@ -2,9 +2,14 @@ import logging
 import os
 import json
 from typing import Optional, List, Dict, Any
-from datetime import datetime
-from azure.storage.blob import BlobServiceClient
-from azure.cosmos import CosmosClient, PartitionKey
+from datetime import datetime, timezone
+try:
+    from azure.storage.blob import BlobServiceClient
+    from azure.cosmos import CosmosClient, PartitionKey
+except Exception:  # pragma: no cover - allow running without Azure SDKs installed
+    BlobServiceClient = None  # type: ignore
+    CosmosClient = None  # type: ignore
+    PartitionKey = None  # type: ignore
 from src.models.validation_models import (
     ExcelFileMetadata, ValidationResult, EmailNotification, 
     ChangeTrackingRecord, ValidationStatus
@@ -151,9 +156,11 @@ class StorageService:
             container = database.get_container_client(self.containers["metadata"])
             
             # Convert to dict and add required fields
-            item = metadata.dict()
+            item = metadata.model_dump()
             item['id'] = metadata.file_id
-            item['timestamp'] = metadata.upload_timestamp.isoformat()
+            item['timestamp'] = (
+                metadata.upload_timestamp if isinstance(metadata.upload_timestamp, datetime) else datetime.now(timezone.utc)
+            ).isoformat()
             
             container.create_item(item)
             logger.info(f"Metadata stored for file: {metadata.file_id}")
@@ -182,9 +189,11 @@ class StorageService:
             container = database.get_container_client(self.containers["validations"])
             
             # Convert to dict and prepare for storage
-            item = result.dict()
+            item = result.model_dump()
             item['id'] = result.validation_id
-            item['timestamp'] = result.timestamp.isoformat()
+            item['timestamp'] = (
+                result.timestamp if isinstance(result.timestamp, datetime) else datetime.now(timezone.utc)
+            ).isoformat()
             
             # Convert errors and warnings to serializable format
             item['errors'] = [error.dict() for error in result.errors]
@@ -217,9 +226,11 @@ class StorageService:
             container = database.get_container_client(self.containers["emails"])
             
             # Convert to dict and prepare for storage
-            item = notification.dict()
+            item = notification.model_dump()
             item['id'] = notification.notification_id
-            item['sent_timestamp'] = notification.sent_timestamp.isoformat()
+            item['sent_timestamp'] = (
+                notification.sent_timestamp if isinstance(notification.sent_timestamp, datetime) else datetime.now(timezone.utc)
+            ).isoformat()
             
             if notification.correction_deadline:
                 item['correction_deadline'] = notification.correction_deadline.isoformat()
@@ -284,7 +295,7 @@ class StorageService:
             return False
     
     def update_change_tracking(self, tracking_id: str, updated_file_hash: str, 
-                             change_description: str = None) -> bool:
+                             change_description: str = None, file_id: Optional[str] = None) -> bool:
         """
         Update change tracking record with new file information
         
@@ -303,8 +314,20 @@ class StorageService:
             database = self.cosmos_client.get_database_client(self.database_name)
             container = database.get_container_client(self.containers["tracking"])
             
-            # Get existing record
-            existing_item = container.read_item(tracking_id, partition_key=tracking_id.split('_')[1])
+            # Get existing record (prefer direct read with known partition key)
+            if file_id:
+                existing_item = container.read_item(tracking_id, partition_key=file_id)
+            else:
+                query = "SELECT * FROM c WHERE c.id = @id"
+                items = list(container.query_items(
+                    query=query,
+                    parameters=[{"name": "@id", "value": tracking_id}],
+                    enable_cross_partition_query=True
+                ))
+                if not items:
+                    logger.error(f"Tracking record not found: {tracking_id}")
+                    return False
+                existing_item = items[0]
             
             # Update with new information
             existing_item['updated_file_hash'] = updated_file_hash
@@ -314,7 +337,7 @@ class StorageService:
             if change_description:
                 existing_item['change_description'] = change_description
             
-            container.replace_item(tracking_id, existing_item)
+            container.replace_item(existing_item['id'], existing_item)
             logger.info(f"Change tracking updated: {tracking_id}")
             return True
             
@@ -339,10 +362,16 @@ class StorageService:
             database = self.cosmos_client.get_database_client(self.database_name)
             container = database.get_container_client(self.containers["validations"])
             
-            # Extract file_id from validation_id for partition key
-            file_id = validation_id.split('_')[1] if '_' in validation_id else validation_id
-            
-            item = container.read_item(validation_id, partition_key=file_id)
+            # Query by id across partitions to avoid brittle partition key extraction
+            query = "SELECT * FROM c WHERE c.id = @id"
+            items = list(container.query_items(
+                query=query,
+                parameters=[{"name": "@id", "value": validation_id}],
+                enable_cross_partition_query=True
+            ))
+            if not items:
+                return None
+            item = items[0]
             
             # Convert back to ValidationResult object
             # This would need proper deserialization logic
