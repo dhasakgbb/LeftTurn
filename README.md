@@ -200,6 +200,22 @@ An OpenAPI definition for the agent gateway is available at `docs/openapi/agent-
 - Pattern: Structured facts from Fabric (variance, shipments) + contract clauses from Search; package an evidence bundle linking both.
 - Integrations: TMS/WMS (status events), EDI 210/214, SharePoint/OneDrive for packet storage, ServiceNow/Jira for ticketing, Outlook for templated emails.
 
+## Licensing
+
+1. Obtain a license key from LeftTurn.
+2. Set `LEFTTURN_LICENSE_KEY` before running the app:
+
+```bash
+export LEFTTURN_LICENSE_KEY=YOUR_KEY
+```
+
+The package validates the key at startup using a hashed comparison.
+Build an obfuscated binary for distribution via PyInstaller:
+
+```bash
+./build.sh
+```
+
 ## License
 
 MIT License
