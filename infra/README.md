@@ -30,6 +30,8 @@ Seed assets
 - Search data-plane: run `infra/scripts/seed_search.sh` to create data source (Blob), skillset (PII redaction + optional embeddings), index, and indexer (scheduled).
 - Fabric SQL views: use files in `fabric/sql/` in your Fabric workspace SQL endpoint.
 - Notebooks: import `notebooks/*.ipynb` into Microsoft Fabric.
+- Contracts entities: run `fabric/sql/create_tables_contracts.sql` to create canonical tables, and use `notebooks/carrier_unstructured.ipynb` to parse PDFs and write to `dbo.RateCard`, `dbo.Surcharge`, etc.
+- Row-Level Security: apply `fabric/sql/rls_carrier.sql` and populate `dbo.UserCarrierAccess` with AAD SIDs per carrier.
 
 APIM & EasyAuth
 - EasyAuth: set `enableEasyAuth=true` and pass `aadTenantId` and `aadAllowedAudience` parameters to enforce AAD on the Function App.
@@ -42,3 +44,4 @@ Embeddings for Search
 Notes
 - Some resources (Search index, skillset) use data-plane APIs; ARM cannot create them directly, so we provide scripts.
 - Microsoft Fabric ARM/TF support uses preview resource providers. AzAPI is used in Terraform to call RP if enabled.
+ - Fabric SQL client supports HTTP facade and optional ODBC direct mode. Set `FABRIC_SQL_MODE=odbc` and `FABRIC_ODBC_CONNECTION_STRING` if you prefer direct Warehouse connectivity; otherwise keep an internal facade at `{FABRIC_ENDPOINT}/sql`.

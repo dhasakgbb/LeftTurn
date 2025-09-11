@@ -1,0 +1,84 @@
+name: CI-CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Run deploy (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Lint
+        run: flake8
+      - name: Tests
+        run: pytest -q
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy == 'true'
+    needs: [test]
+    runs-on: ubuntu-latest
+    env:
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+      LOCATION: ${{ secrets.AZURE_LOCATION }}
+      BASE_NAME: ${{ secrets.BASE_NAME }}
+      ENABLE_EASYAUTH: ${{ secrets.ENABLE_EASYAUTH }}
+      AAD_TENANT_ID: ${{ secrets.AAD_TENANT_ID }}
+      AAD_ALLOWED_AUDIENCE: ${{ secrets.AAD_ALLOWED_AUDIENCE }}
+      SEARCH_SERVICE: ${{ secrets.SEARCH_SERVICE }}
+      SEARCH_ADMIN_KEY: ${{ secrets.SEARCH_ADMIN_KEY }}
+      AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_EMBED_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_EMBED_DEPLOYMENT }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+      - name: Deploy Bicep
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
+          template: infra/bicep/main.bicep
+          parameters: |
+            env=prod
+            location=${{ env.LOCATION }}
+            baseName=${{ env.BASE_NAME }}
+            enableEasyAuth=${{ env.ENABLE_EASYAUTH }}
+            aadTenantId=${{ env.AAD_TENANT_ID }}
+            aadAllowedAudience=${{ env.AAD_ALLOWED_AUDIENCE }}
+      - name: Seed Search assets
+        shell: bash
+        run: |
+          export SEARCH_SERVICE=${{ env.SEARCH_SERVICE }}
+          export SEARCH_ADMIN_KEY=${{ env.SEARCH_ADMIN_KEY }}
+          export AZURE_STORAGE_CONNECTION_STRING=${{ env.AZURE_STORAGE_CONNECTION_STRING }}
+          export AZURE_OPENAI_ENDPOINT=${{ env.AZURE_OPENAI_ENDPOINT }}
+          export AZURE_OPENAI_API_KEY=${{ env.AZURE_OPENAI_API_KEY }}
+          export AZURE_OPENAI_EMBED_DEPLOYMENT=${{ env.AZURE_OPENAI_EMBED_DEPLOYMENT }}
+          bash infra/scripts/seed_search.sh
+      - name: Deploy Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ secrets.FUNCTION_APP_NAME }}
+          package: .
+
