@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 agent_gateway_bp = func.Blueprint()
 
 
-def _build_orchestrator() -> OrchestratorAgent:
+def _build_orchestrator(user_graph_token: str | None = None) -> OrchestratorAgent:
     """Create an orchestrator wired to Fabric, Search, and Graph services.
 
     Configuration is taken from environment variables so this function stays
@@ -47,7 +47,8 @@ def _build_orchestrator() -> OrchestratorAgent:
     )
 
     # Microsoft Graph
-    graph_token = os.getenv("GRAPH_TOKEN", "").strip()
+    # Prefer a per-request delegated token from EasyAuth when available
+    graph_token = (user_graph_token or os.getenv("GRAPH_TOKEN", "").strip())
     graph_endpoint = os.getenv("GRAPH_ENDPOINT", "https://graph.microsoft.com/v1.0")
     graph = GraphService(token=graph_token, endpoint=graph_endpoint) if graph_token else None
 
@@ -113,7 +114,9 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
                 headers={"Content-Type": "application/json"},
             )
 
-        orchestrator = _build_orchestrator()
+        # Surface user Graph token from EasyAuth (if enabled)
+        graph_token = req.headers.get("x-ms-token-aad-access-token") if hasattr(req, "headers") else None
+        orchestrator = _build_orchestrator(graph_token)
         agent = _resolve_chat_agent(req.route_params.get("agent", "domain"), orchestrator)
 
         logger.info(f"[{cid}] Agent ask to {agent.__class__.__name__}")

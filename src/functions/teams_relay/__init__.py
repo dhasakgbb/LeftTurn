@@ -39,7 +39,8 @@ async def teams_ask(req: func.HttpRequest) -> func.HttpResponse:
             headers={"Content-Type": "application/json"},
         )
 
-    orch = _build_orchestrator()
+    user_token = req.headers.get("x-ms-token-aad-access-token") if hasattr(req, "headers") else None
+    orch = _build_orchestrator(user_token)
     agent = _resolve_chat_agent(agent_name, orch)
     result_payload = orch.handle_with_citations(query)
 
@@ -58,4 +59,3 @@ async def teams_ask(req: func.HttpRequest) -> func.HttpResponse:
         status_code=200,
         headers={"Content-Type": "application/json"},
     )
-

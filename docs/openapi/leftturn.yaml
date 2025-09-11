@@ -1,0 +1,111 @@
+openapi: 3.0.3
+info:
+  title: LeftTurn Agents API
+  version: 0.1.0
+  description: APIs for Teams/Copilot actions to query agents and process Excel files.
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: your-function-app.azurewebsites.net
+components:
+  securitySchemes:
+    aadOauth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/common/oauth2/v2.0/token
+          scopes:
+            api://APP_ID_URI/.default: API access
+  schemas:
+    AgentAskRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+        format:
+          type: string
+          enum: [json, card]
+          default: card
+    AgentAskResponse:
+      type: object
+      properties:
+        agent:
+          type: string
+        tool:
+          type: string
+          enum: [fabric_sql, ai_search, graph]
+        result:
+          description: Rows or passages
+        citations:
+          type: array
+          items:
+            type: object
+        powerBiLink:
+          type: string
+    TeamsAskRequest:
+      type: object
+      required: [query]
+      properties:
+        query: { type: string }
+        agent: { type: string, enum: [domain, carrier, customer, claims], default: domain }
+paths:
+  /api/agents/{agent}/ask:
+    post:
+      summary: Ask a LeftTurn agent
+      security:
+        - aadOauth: [api://APP_ID_URI/.default]
+      parameters:
+        - in: path
+          name: agent
+          required: true
+          schema: { type: string, enum: [domain, carrier, customer, claims] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AgentAskRequest' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AgentAskResponse' } } } }
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+  /api/teams/ask:
+    post:
+      summary: Ask and receive an Adaptive Card
+      security:
+        - aadOauth: [api://APP_ID_URI/.default]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TeamsAskRequest' }
+      responses:
+        '200': { description: OK }
+  /api/process:
+    post:
+      summary: Upload Excel for validation
+      security:
+        - aadOauth: [api://APP_ID_URI/.default]
+      responses:
+        '200': { description: OK }
+  /api/status/{file_id}:
+    get:
+      summary: Get processing status
+      security:
+        - aadOauth: [api://APP_ID_URI/.default]
+      parameters:
+        - in: path
+          name: file_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/verify:
+    post:
+      summary: Verify corrections on a file
+      security:
+        - aadOauth: [api://APP_ID_URI/.default]
+      responses:
+        '200': { description: OK }
