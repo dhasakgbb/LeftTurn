@@ -222,12 +222,14 @@ def handle_agent_query(
         # Include date range expressions from SQL parameters when available
         exprs = []
         try:
+            import os as _os
+            date_col = _os.getenv("PBI_DATE_COLUMN", "vw_Variance/ShipDate")
             params_dict = (result_payload.get("citations") or [{}])[0].get("parameters") or {}
             dfrom = params_dict.get("@from")
             dto = params_dict.get("@to")
             if dfrom and dto:
-                exprs.append(f"vw_Variance/ShipDate ge '{dfrom}'")
-                exprs.append(f"vw_Variance/ShipDate le '{dto}'")
+                exprs.append(f"{date_col} ge '{dfrom}'")
+                exprs.append(f"{date_col} le '{dto}'")
         except Exception:
             pass
         pbi = build_pbi_deeplink({k: v for k, v in filters.items() if v}, expressions=exprs or None)

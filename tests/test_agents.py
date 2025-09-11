@@ -208,7 +208,7 @@ def test_orchestrator_citations_views_extracted() -> None:
         )
         orch = OrchestratorAgent(structured, unstructured)
 
-        params = {"@from": "2024-01-01", "@to": "2024-01-31", "@carrier": "X"}
+        params = {"@from": "2024-01-01", "@to": "2024-01-31", "@carrier": "X", "@sku": "812"}
         payload = orch.handle_with_citations(("variance_by_service", params))
 
         c0 = payload["citations"][0]
@@ -311,6 +311,10 @@ def test_sql_templates_registered() -> None:
     for key in [
         "variance_summary",
         "variance_by_service",
+        "variance_by_sku",
+        "variance_by_carrier_service",
+        "variance_trend_by_carrier",
+        "variance_trend_by_sku",
         "on_time_rate",
         "fuel_surcharge_series",
     ]:
@@ -342,10 +346,14 @@ def test_structured_agent_runs_all_templates() -> None:
         fabric = FabricDataAgent("https://fabric.test", token="T")
         structured = StructuredDataAgent(fabric)
 
-        params = {"@from": "2024-01-01", "@to": "2024-01-31", "@carrier": "X"}
+        params = {"@from": "2024-01-01", "@to": "2024-01-31", "@carrier": "X", "@sku": "812"}
         for name in [
             "variance_summary",
             "variance_by_service",
+            "variance_by_sku",
+            "variance_by_carrier_service",
+            "variance_trend_by_carrier",
+            "variance_trend_by_sku",
             "on_time_rate",
             "fuel_surcharge_series",
         ]:

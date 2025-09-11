@@ -12,6 +12,11 @@ class ToolCall(TypedDict):
 def classify(query: str) -> ToolCall:
     q = query.lower()
     if any(k in q for k in ("variance", "overbill", "how much", "total", "rate ")):
+        # Time-series intents
+        if any(k in q for k in ("trend", "over time", "by month", "monthly")):
+            if "sku" in q:
+                return {"tool": "sql", "name": "variance_trend_by_sku", "params": {}}
+            return {"tool": "sql", "name": "variance_trend_by_carrier", "params": {}}
         if "service" in q or "by service" in q:
             return {"tool": "sql", "name": "variance_by_service", "params": {}}
         if "on-time" in q or "on time" in q or "sla" in q:

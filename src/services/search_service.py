@@ -17,6 +17,8 @@ class SearchService:
         self._index = index
         self._api_key = api_key or os.getenv("SEARCH_API_KEY", "")
         self._api_version = api_version or os.getenv("SEARCH_API_VERSION", "2021-04-30-Preview")
+        self._hybrid = os.getenv("SEARCH_HYBRID", "false").lower() in {"1", "true", "yes"}
+        self._vector_field = os.getenv("SEARCH_VECTOR_FIELD", "pageEmbedding")
 
     def search(
         self, query: str, top: int = 5, semantic: bool = False, return_fields: bool = False
@@ -36,6 +38,11 @@ class SearchService:
                 "queryLanguage": "en-us",
                 "semanticConfiguration": "default",
             })
+        # Hybrid vector + keyword (if configured and embedding available)
+        if self._hybrid:
+            embedding = self._embed(query)
+            if embedding:
+                body["vector"] = {"value": embedding, "fields": self._vector_field, "k": top}
 
         response = requests.post(
             url,
@@ -59,3 +66,22 @@ class SearchService:
                 )
             return out
         return [d.get("content") or d.get("text", "") for d in docs]
+
+    def _embed(self, text: str) -> List[float] | None:  # pragma: no cover - network
+        """Optionally get an embedding vector via Azure OpenAI if configured."""
+        try:
+            import requests as _rq
+            endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+            key = os.getenv("AZURE_OPENAI_API_KEY")
+            dep = os.getenv("AZURE_OPENAI_EMBED_DEPLOYMENT")
+            if not (endpoint and key and dep):
+                return None
+            url = f"{endpoint}/openai/deployments/{dep}/embeddings?api-version=2023-05-15"
+            headers = {"api-key": key, "Content-Type": "application/json"}
+            payload = {"input": text}
+            r = _rq.post(url, headers=headers, json=payload, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            return data["data"][0]["embedding"]
+        except Exception:
+            return None
