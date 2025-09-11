@@ -11,18 +11,18 @@ class SearchService:
     """Query an Azure Cognitive Search index."""
 
     def __init__(
-        self, endpoint: str, index: str, api_key: str | None = None
+        self, endpoint: str, index: str, api_key: str | None = None, api_version: str | None = None
     ) -> None:
         self._endpoint = endpoint.rstrip("/")
         self._index = index
         self._api_key = api_key or os.getenv("SEARCH_API_KEY", "")
+        self._api_version = api_version or os.getenv("SEARCH_API_VERSION", "2021-04-30-Preview")
 
     def search(
         self, query: str, top: int = 5, semantic: bool = False, return_fields: bool = False
     ) -> List[Any]:
         url = (
-            f"{self._endpoint}/indexes/{self._index}/docs/search"
-            "?api-version=2021-04-30-Preview"
+            f"{self._endpoint}/indexes/{self._index}/docs/search?api-version={self._api_version}"
         )
         headers = {
             "api-key": self._api_key,

@@ -155,6 +155,10 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
                 filters["vw_Variance/Carrier"] = _extract_value(query, "carrier") or ""
             if "sku" in ql:
                 filters["vw_Variance/SKU"] = _extract_value(query, "sku") or ""
+            if "service level" in ql or "service" in ql:
+                val = _extract_value(query, "service level") or _extract_value(query, "service")
+                if val:
+                    filters["vw_Variance/ServiceLevel"] = val
             pbi = build_pbi_deeplink({k: v for k, v in filters.items() if v})
             if pbi:
                 result_payload["powerBiLink"] = pbi

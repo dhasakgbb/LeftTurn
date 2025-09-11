@@ -121,7 +121,10 @@ def test_orchestrator_citations_structured() -> None:
         rsps.add(
             "POST",
             "https://fabric.test/sql",
-            json={"rows": [{"carrier": "X", "overbilled": True}]},
+            json={"rows": [
+                {"carrier": "X", "overbilled": True},
+                {"carrier": "Y", "overbilled": False},
+            ]},
         )
         structured = StructuredDataAgent(
             FabricDataAgent("https://fabric.test", token="T")
@@ -137,6 +140,30 @@ def test_orchestrator_citations_structured() -> None:
         assert payload["tool"] == "fabric_sql"
         assert isinstance(payload.get("citations"), list)
         assert payload["citations"][0]["template"] == "variance_summary"
+        # sampleRows should include up to first 3 rows
+        assert isinstance(payload.get("sampleRows"), list) and len(payload["sampleRows"]) >= 1
+
+
+def test_orchestrator_citations_views_extracted() -> None:
+    with responses.RequestsMock() as rsps:
+        rsps.add(
+            "POST",
+            "https://fabric.test/sql",
+            json={"rows": []},
+        )
+        structured = StructuredDataAgent(
+            FabricDataAgent("https://fabric.test", token="T")
+        )
+        unstructured = UnstructuredDataAgent(
+            SearchService("https://search.test", "contracts", api_key="K")
+        )
+        orch = OrchestratorAgent(structured, unstructured)
+
+        params = {"@from": "2024-01-01", "@to": "2024-01-31", "@carrier": "X"}
+        payload = orch.handle_with_citations(("variance_by_service", params))
+
+        c0 = payload["citations"][0]
+        assert "views" in c0 and any("vw_" in v for v in c0["views"]) 
 
 
 def test_orchestrator_citations_unstructured() -> None:

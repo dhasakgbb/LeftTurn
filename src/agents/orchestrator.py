@@ -2,6 +2,9 @@
 from __future__ import annotations
 from typing import Any
 
+from src.agents import router
+from src.services.sql_templates import TEMPLATES
+
 
 class OrchestratorAgent:
     """Routes user queries to structured or unstructured agents.
@@ -25,12 +28,17 @@ class OrchestratorAgent:
         if isinstance(query, tuple):
             template, params = query
             return self._structured_agent.query(template, params)
-        if (
-            self._graph_service
-            and isinstance(query, str)
-            and self._needs_graph(query)
-        ):
-            return self._graph_service.get_resource(query)
+        if isinstance(query, str):
+            # Prefer router classification for string queries
+            try:
+                decision = router.classify(query)
+                if decision["tool"] == "graph" and self._graph_service:
+                    return self._graph_service.get_resource(query)
+            except Exception:
+                pass
+            # Fallback keyword check for Graph intents
+            if self._graph_service and self._needs_graph(query):
+                return self._graph_service.get_resource(query)
         return self._unstructured_agent.search(query)
 
     def handle_with_citations(self, query: Any) -> dict:
@@ -46,31 +54,45 @@ class OrchestratorAgent:
         if isinstance(query, tuple):
             template, params = query
             data = self._structured_agent.query(template, params)
+            views = _extract_views_from_template(template)
             return {
                 "tool": "fabric_sql",
                 "result": data,
+                "sampleRows": list(data[:3]) if isinstance(data, list) else [],
                 "citations": [
                     {
                         "type": "table",
                         "source": "fabric",
                         "template": template,
                         "parameters": params,
+                        **({"views": views} if views else {}),
                     }
                 ],
             }
-        if (
-            self._graph_service
-            and isinstance(query, str)
-            and self._needs_graph(query)
-        ):
-            data = self._graph_service.get_resource(query)
-            return {
-                "tool": "graph",
-                "result": data,
-                "citations": [
-                    {"type": "graph", "query": query, "count": len(data)}
-                ],
-            }
+        if isinstance(query, str):
+            try:
+                decision = router.classify(query)
+                if decision["tool"] == "graph" and self._graph_service:
+                    data = self._graph_service.get_resource(query)
+                    return {
+                        "tool": "graph",
+                        "result": data,
+                        "citations": [
+                            {"type": "graph", "query": query, "count": len(data)}
+                        ],
+                    }
+            except Exception:
+                pass
+            # Fallback keyword check for Graph intents
+            if self._graph_service and self._needs_graph(query):
+                data = self._graph_service.get_resource(query)
+                return {
+                    "tool": "graph",
+                    "result": data,
+                    "citations": [
+                        {"type": "graph", "query": query, "count": len(data)}
+                    ],
+                }
         # Prefer metadata-aware search when available
         try:
             docs = self._unstructured_agent.search_with_meta(query)
@@ -105,3 +127,21 @@ class OrchestratorAgent:
         keywords = {"email", "calendar", "file", "meeting"}
         text = query.lower()
         return any(k in text for k in keywords)
+
+
+def _extract_views_from_template(template: str) -> list[str]:
+    """Attempt to extract referenced views from the SQL template.
+
+    Returns a list of identifiers found in FROM/JOIN clauses.
+    """
+    try:
+        import re
+        sql = TEMPLATES.get(template, "")
+        names: set[str] = set()
+        for m in re.finditer(r"\bFROM\s+([\w\.]+)", sql, re.IGNORECASE):
+            names.add(m.group(1))
+        for m in re.finditer(r"\bJOIN\s+([\w\.]+)", sql, re.IGNORECASE):
+            names.add(m.group(1))
+        return sorted(names)
+    except Exception:
+        return []
