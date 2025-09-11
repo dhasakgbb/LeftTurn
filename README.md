@@ -96,6 +96,8 @@ Deploy to Azure using the provided deployment script:
 ├── function_app.py
 ├── .env.example
 └── README.md
+
+See `AGENTS.md` for contributor/agent guidance and `docs/leftturn-architecture.md` for the full architecture write-up with a Mermaid diagram at `docs/diagrams/leftturn-arch.mmd`.
 ```
 
 ## Configuration

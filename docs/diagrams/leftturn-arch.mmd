@@ -1,0 +1,22 @@
+flowchart LR
+  user([M365 Copilot / Teams]) --> agents[LeftTurn Agents\n(Domain, Carrier, Cust Ops)]
+  agents --> gw[Agent Gateway (Azure Functions)]
+  gw --> orch[Orchestrator]
+  orch -->|structured| sda[Structured Data Agent]
+  orch -->|unstructured| uda[Unstructured Data Agent]
+  orch -->|optional| graph[Microsoft Graph]
+
+  sda --> fabric[Fabric SQL Endpoint]
+  uda --> search[Azure AI Search]
+  uda --> docint[Document Intelligence]
+  fabric --> lakehouse[(Fabric Lakehouse\nCurated Delta Tables)]
+  lakehouse --> pbi[Power BI Reports]
+  subgraph Landing Zone
+    storage[(Azure Storage)]
+  end
+  storage --> lakehouse
+
+  classDef svc fill:#eef,stroke:#268bd2;
+  classDef data fill:#efe,stroke:#2aa198;
+  class agents,gw,orch,sda,uda,graph,search,docint svc;
+  class lakehouse,storage data;
