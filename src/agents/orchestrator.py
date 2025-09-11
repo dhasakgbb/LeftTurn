@@ -20,15 +20,20 @@ class OrchestratorAgent:
         self._unstructured_agent = unstructured_agent
         self._graph_service = graph_service
 
-    def handle(self, query: str) -> Any:
+    def handle(self, query: Any) -> Any:
         """Return a response by delegating to the appropriate agent."""
-        if self._graph_service and self._needs_graph(query):
+        if isinstance(query, tuple):
+            template, params = query
+            return self._structured_agent.query(template, params)
+        if (
+            self._graph_service
+            and isinstance(query, str)
+            and self._needs_graph(query)
+        ):
             return self._graph_service.get_resource(query)
-        if self._is_structured_query(query):
-            return self._structured_agent.query(query)
         return self._unstructured_agent.search(query)
 
-    def handle_with_citations(self, query: str) -> dict:
+    def handle_with_citations(self, query: Any) -> dict:
         """Return tool result with lightweight citations and routing metadata.
 
         Structure:
@@ -38,19 +43,33 @@ class OrchestratorAgent:
           "citations": [ { ... } ]
         }
         """
-        if self._graph_service and self._needs_graph(query):
+        if isinstance(query, tuple):
+            template, params = query
+            data = self._structured_agent.query(template, params)
+            return {
+                "tool": "fabric_sql",
+                "result": data,
+                "citations": [
+                    {
+                        "type": "table",
+                        "source": "fabric",
+                        "template": template,
+                        "parameters": params,
+                    }
+                ],
+            }
+        if (
+            self._graph_service
+            and isinstance(query, str)
+            and self._needs_graph(query)
+        ):
             data = self._graph_service.get_resource(query)
             return {
                 "tool": "graph",
                 "result": data,
-                "citations": [{"type": "graph", "query": query, "count": len(data)}],
-            }
-        if self._is_structured_query(query):
-            data = self._structured_agent.query(query)
-            return {
-                "tool": "fabric_sql",
-                "result": data,
-                "citations": [{"type": "table", "source": "fabric", "sql": query}],
+                "citations": [
+                    {"type": "graph", "query": query, "count": len(data)}
+                ],
             }
         data = self._unstructured_agent.search(query)
         citations = [
@@ -58,12 +77,6 @@ class OrchestratorAgent:
             for i, p in enumerate(data[:5])
         ]
         return {"tool": "ai_search", "result": data, "citations": citations}
-
-    @staticmethod
-    def _is_structured_query(query: str) -> bool:
-        keywords = {"invoice", "table", "rate", "sql"}
-        text = query.lower()
-        return any(k in text for k in keywords)
 
     @staticmethod
     def _needs_graph(query: str) -> bool:
