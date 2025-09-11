@@ -1,15 +1,35 @@
 # LeftTurn Agents and Data Validation (Azure)
 
-This repository delivers a production‑ready, end‑to‑end implementation that maps to the architecture described in the prompt:
+![Python](https://img.shields.io/badge/python-3.9%2B-blue) ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
-- Chat‑facing LeftTurn agents (Domain/Carrier/Customer Ops) behind a single HTTP gateway
-- An Orchestrator that routes between Structured (Fabric) and Unstructured (Search) tools, with optional Microsoft Graph lookups
-- A robust Excel ingestion and validation flow with notifications, change tracking, and storage
+LeftTurn delivers a production‑ready logistics intelligence stack that reconciles carrier contracts, invoices, tracking and ERP data. It exposes curated tables for analytics and powers chat agents in Microsoft 365 with retrieval‑augmented answers backed by verifiable evidence.
 
-All components run inside your Microsoft 365/Azure tenant and integrate with Microsoft Fabric, Azure AI Search, Document Intelligence (optional), and Power BI.
+## Table of Contents
 
-## Architecture
+- [Features](#features)
+- [Architecture Overview](#architecture-overview)
+- [End-to-End Flow](#end-to-end-flow)
+- [Fabric Backbone and Data Model](#fabric-backbone-and-data-model)
+- [Development Setup](#development-setup)
+- [Deployment](#deployment)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Key Endpoints](#key-endpoints)
+- [Operations and Governance](#operations-and-governance)
+- [Roadmap](#roadmap)
+- [Infrastructure-as-Code](#infrastructure-as-code)
+- [Teams Integration](#teams-integration)
+- [Claims Agent (Logistics Value Add)](#claims-agent-logistics-value-add)
+- [License](#license)
 
+## Features
+
+- Unified chat gateway for domain, carrier, customer, and claims agents
+- Orchestrator routes between Fabric SQL, Azure AI Search, and Microsoft Graph
+- Excel ingestion and validation pipeline with change tracking and email notifications
+- All services run in your Microsoft 365/Azure tenant and integrate with Power BI
+
+## Architecture Overview
 - **Azure Functions**: Serverless app exposing all endpoints.
 - **AI Foundry Orchestrator**: `src/agents/orchestrator.py` selects tools per request.
 - **Structured Data Agent**: `src/agents/structured_data_agent.py` executes SQL via the Fabric connector client in `src/services/fabric_data_agent.py`.
@@ -104,39 +124,33 @@ See `AGENTS.md` for contributor/agent guidance and `docs/leftturn-architecture.m
 
 ## Configuration
 
-The agent requires the following environment variables:
-
-- `AZURE_STORAGE_CONNECTION_STRING`: Connection string for Azure Storage
-- `AZURE_COSMOSDB_CONNECTION_STRING`: Connection string for Cosmos DB
-- `AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING`: Connection string for Communication Services
-- `AZURE_OPENAI_ENDPOINT`: Azure OpenAI endpoint
-- `AZURE_OPENAI_API_KEY`: Azure OpenAI API key
-- `AZURE_OPENAI_MODEL`: Model name (e.g., gpt-4.1)
-- `AZURE_OPENAI_EMBED_DEPLOYMENT`: Embedding deployment name used by the Search skillset
-
-Agents and data tools:
-
-- `FABRIC_ENDPOINT`: Base URL for Microsoft Fabric SQL endpoint (e.g., `https://<workspace>.<region>.fabric.microsoft.com`)
-- `FABRIC_TOKEN`: OAuth bearer token for Fabric endpoint (Entra ID).
-- `SEARCH_ENDPOINT`: Azure AI Search endpoint (e.g., `https://<name>.search.windows.net`)
-- `SEARCH_INDEX`: Search index name for contracts/guides.
-- `SEARCH_API_KEY`: Admin or query key for the Search service.
-- `GRAPH_TOKEN`: Optional bearer token for Microsoft Graph (or use API Management/proxy).
-- `GRAPH_ENDPOINT`: Optional Graph base URL (default `https://graph.microsoft.com/v1.0`).
-
-Optional configuration (with defaults):
-
-- `SUPPORTED_FILE_TYPES`: Comma-separated list of allowed file extensions (without the dot). Default: `xlsx`.
-- `MAX_FILE_SIZE_MB`: Maximum upload size in megabytes for `/api/process`. Default: `50`.
-- `DEFAULT_SENDER_EMAIL`: Sender address for email notifications. Default: `noreply@yourdomain.com`.
-- `REMINDER_DAYS_OLD`: Days after which failed validations receive a reminder. Default: `3`.
-- `REMINDER_MAX_ITEMS`: Safety cap for reminders processed per run. Default: `100`.
-- `PBI_WORKSPACE_ID` / `PBI_REPORT_ID`: If set, the agent gateway includes a `powerBiLink` deep-link in structured answers.
-- `SEARCH_DS_CONNECTION_STRING` / `SEARCH_DS_CONTAINER`: Storage settings used by `infra/scripts/seed_search.sh` to create the Search data source. Defaults: storage connection string and `contracts`.
+| Variable | Description |
+| --- | --- |
+| `AZURE_STORAGE_CONNECTION_STRING` | Azure Storage connection string |
+| `AZURE_COSMOSDB_CONNECTION_STRING` | Cosmos DB connection string |
+| `AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING` | Communication Services connection string |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key |
+| `AZURE_OPENAI_MODEL` | Model name (e.g., gpt-4.1) |
+| `AZURE_OPENAI_EMBED_DEPLOYMENT` | Embedding deployment name used by the Search skillset |
+| `FABRIC_ENDPOINT` | Microsoft Fabric SQL endpoint |
+| `FABRIC_TOKEN` | OAuth bearer token for Fabric |
+| `SEARCH_ENDPOINT` | Azure AI Search endpoint |
+| `SEARCH_INDEX` | Search index for contracts/guides |
+| `SEARCH_API_KEY` | Azure AI Search key |
+| `GRAPH_TOKEN` | Optional Microsoft Graph bearer token |
+| `GRAPH_ENDPOINT` | Optional Graph base URL (default `https://graph.microsoft.com/v1.0`) |
+| `SUPPORTED_FILE_TYPES` | Allowed file extensions (default `xlsx`) |
+| `MAX_FILE_SIZE_MB` | Maximum upload size for `/api/process` (default `50`) |
+| `DEFAULT_SENDER_EMAIL` | Sender address for notifications (default `noreply@yourdomain.com`) |
+| `REMINDER_DAYS_OLD` | Days after which failed validations receive a reminder (default `3`) |
+| `REMINDER_MAX_ITEMS` | Maximum reminders processed per run (default `100`) |
+| `PBI_WORKSPACE_ID` / `PBI_REPORT_ID` | Include a `powerBiLink` in responses when set |
+| `SEARCH_DS_CONNECTION_STRING` / `SEARCH_DS_CONTAINER` | Storage settings for `infra/scripts/seed_search.sh` (defaults: storage connection string and `contracts`) |
 
 Notes:
 
-- Only `.xlsx` is supported by default. Legacy `.xls` is not enabled because the configured reader uses `openpyxl`.
+- Only `.xlsx` is supported by default; `.xls` is disabled because the reader uses `openpyxl`.
 - Requests exceeding `MAX_FILE_SIZE_MB` return HTTP 413 (Payload Too Large).
 - Timestamps in responses, storage records, and emails are UTC.
 
@@ -160,7 +174,7 @@ An OpenAPI definition for the agent gateway is available at `docs/openapi/agent-
 - Guardrails: Orchestrator prefers structured data for numeric claims; each answer payload contains the raw results returned by tools for downstream rendering/citations.
 - EasyAuth/APIM: Enforce Azure AD JWTs and rate‑limit calls at the edge when enabled in Bicep.
 
-## Next Integrations
+## Roadmap
 
 - Document Intelligence: parse carrier PDFs into structured tables feeding Fabric.
 - Power BI: connect to curated Delta tables for dashboards; link BI bookmarks from agent responses.
