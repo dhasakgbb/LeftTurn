@@ -26,6 +26,12 @@ All components run inside your Microsoft 365/Azure tenant and integrate with Mic
 3. The answer returns with grounded evidence (rows or passages).
 4. Separately, Excel files are ingested, validated, and persisted. Failed validations trigger email notifications and change tracking; corrections can be verified with a follow‑up call.
 
+## Fabric Backbone and Data Model
+
+- Lakehouse medallion layout: landing → standardized → curated.
+- Canonical logistics model (suggested): `FactShipment`, `FactInvoice`, `DimCarrier`, `DimServiceLevel`, `DimSKU`, `DimZone`, `DimCustomer` and contract‑derived tables `RateSheet`, `ZoneMatrix`, `AccessorialRule`, `FuelTable`, `Exceptions`.
+- Curated Delta tables power Power BI dashboards and agent queries; connect with the Fabric SQL endpoint set in `FABRIC_ENDPOINT`.
+
 ## Development Setup
 
 ### Prerequisites

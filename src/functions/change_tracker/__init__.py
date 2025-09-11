@@ -358,7 +358,7 @@ async def compare_files(req: func.HttpRequest) -> func.HttpResponse:
         }
         
         if not comparison_result["files_identical"]:
-            # Detailed comparison (simplified for this example)
+            # Basic structural/content comparison; extend with cell‑level diffs if needed
             changes = []
             
             # Compare sheet structure

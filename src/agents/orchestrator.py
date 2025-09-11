@@ -6,8 +6,8 @@ from typing import Any
 class OrchestratorAgent:
     """Routes user queries to structured or unstructured agents.
 
-    The routing heuristics are intentionally lightweight; in a production
-    system this would rely on an LLM or intent classifier.
+    Uses deterministic, keyword‑based intent rules to keep behavior
+    predictable and safe. Swap this out for an LLM classifier if desired.
     """
 
     def __init__(

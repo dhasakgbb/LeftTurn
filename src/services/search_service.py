@@ -17,7 +17,7 @@ class SearchService:
         self._index = index
         self._api_key = api_key or os.getenv("SEARCH_API_KEY", "")
 
-    def search(self, query: str) -> List[str]:
+    def search(self, query: str, top: int = 5, semantic: bool = False) -> List[str]:
         url = (
             f"{self._endpoint}/indexes/{self._index}/docs/search"
             "?api-version=2021-04-30-Preview"
@@ -26,10 +26,19 @@ class SearchService:
             "api-key": self._api_key,
             "Content-Type": "application/json",
         }
+        body = {"search": query, "top": top}
+        if semantic:
+            # Basic semantic settings; requires a semantic configuration on the index
+            body.update({
+                "queryType": "semantic",
+                "queryLanguage": "en-us",
+                "semanticConfiguration": "default",
+            })
+
         response = requests.post(
             url,
             headers=headers,
-            json={"search": query},
+            json=body,
             timeout=10,
         )
         response.raise_for_status()

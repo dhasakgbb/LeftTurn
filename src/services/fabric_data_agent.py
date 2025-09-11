@@ -24,7 +24,7 @@ class FabricDataAgent:
         self._token = token or os.getenv("FABRIC_TOKEN", "")
 
     def run_sql(self, sql: str) -> List[dict]:
-        """Run *sql* against the Fabric endpoint and return rows."""
+        """Run raw SQL against the Fabric endpoint and return rows."""
         url = f"{self._endpoint}/sql"
         headers = {
             "Authorization": f"Bearer {self._token}",
@@ -36,5 +36,23 @@ class FabricDataAgent:
             headers=headers,
             timeout=10,
         )
+        response.raise_for_status()
+        return response.json().get("rows", [])
+
+    def run_sql_params(self, sql: str, parameters: dict) -> List[dict]:
+        """Execute a parameterized SQL query.
+
+        Parameters should be provided as a dict; they are sent to the Fabric
+        service using a standard `parameters` payload to avoid string
+        interpolation. Example: `{"@carrier": "X"}` used with
+        `WHERE carrier = @carrier`.
+        """
+        url = f"{self._endpoint}/sql"
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "Content-Type": "application/json",
+        }
+        payload = {"query": sql, "parameters": [{"name": k, "value": v} for k, v in parameters.items()]}
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
         response.raise_for_status()
         return response.json().get("rows", [])
