@@ -1,9 +1,11 @@
 import os
 import urllib.parse
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 
-def build_pbi_deeplink(filters: Dict[str, Any]) -> Optional[str]:
+def build_pbi_deeplink(
+    filters: Dict[str, Any], expressions: Optional[List[str]] = None
+) -> Optional[str]:
     """Build a Power BI report link with simple filters.
 
     Requires env vars: `PBI_WORKSPACE_ID`, `PBI_REPORT_ID`.
@@ -15,8 +17,11 @@ def build_pbi_deeplink(filters: Dict[str, Any]) -> Optional[str]:
         return None
 
     base = f"https://app.powerbi.com/groups/{ws}/reports/{rep}/ReportSection"
-    # Build `filter` query with AND of each expression Table/Column eq 'value'
-    exprs = []
+    # Build `filter` query with AND of each expression
+    # Start with custom expressions (e.g., date ranges) then add equality filters
+    exprs: List[str] = []
+    if expressions:
+        exprs.extend([str(e) for e in expressions if e])
     for col, val in filters.items():
         if isinstance(val, str):
             v = f"'{val}'"

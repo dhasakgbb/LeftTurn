@@ -171,8 +171,13 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
 def _extract_value(text: str, key: str) -> str | None:
     try:
         import re
-        m = re.search(rf"{key}[:=\s]+([\w\-\.]+)", text, re.IGNORECASE)
-        return m.group(1) if m else None
+        # Match key: value where value can be quoted or unquoted token(s)
+        # Examples: carrier: Acme, service level="2 Day", sku 812
+        pattern = rf"{key}[:=\s]+(?:(['\"])(.*?)\1|([\w\-.]+))"
+        m = re.search(pattern, text, re.IGNORECASE)
+        if not m:
+            return None
+        return (m.group(2) or m.group(3))
     except Exception:
         # Avoid raising from helper; simply return None on parse failure
         return None
@@ -214,7 +219,18 @@ def handle_agent_query(
             val = _extract_value(query, "service level") or _extract_value(query, "service")
             if val:
                 filters["vw_Variance/ServiceLevel"] = val
-        pbi = build_pbi_deeplink({k: v for k, v in filters.items() if v})
+        # Include date range expressions from SQL parameters when available
+        exprs = []
+        try:
+            params_dict = (result_payload.get("citations") or [{}])[0].get("parameters") or {}
+            dfrom = params_dict.get("@from")
+            dto = params_dict.get("@to")
+            if dfrom and dto:
+                exprs.append(f"vw_Variance/ShipDate ge '{dfrom}'")
+                exprs.append(f"vw_Variance/ShipDate le '{dto}'")
+        except Exception:
+            pass
+        pbi = build_pbi_deeplink({k: v for k, v in filters.items() if v}, expressions=exprs or None)
         if pbi:
             result_payload["powerBiLink"] = pbi
 
