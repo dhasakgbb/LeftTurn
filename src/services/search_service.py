@@ -29,6 +29,7 @@ class SearchService:
         headers = {
             "api-key": self._api_key,
             "Content-Type": "application/json",
+            "User-Agent": "LeftTurn/1.0",
         }
         body = {"search": query, "top": top}
         if semantic:

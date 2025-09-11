@@ -53,6 +53,7 @@ class FabricDataAgent:
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
+            "User-Agent": "LeftTurn/1.0",
         }
         response = requests.post(url, json={"query": sql}, headers=headers, timeout=10)
         response.raise_for_status()
@@ -83,6 +84,7 @@ class FabricDataAgent:
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
+            "User-Agent": "LeftTurn/1.0",
         }
         payload = {"query": sql, "parameters": [{"name": k, "value": v} for k, v in parameters.items()]}
         response = requests.post(url, json=payload, headers=headers, timeout=10)

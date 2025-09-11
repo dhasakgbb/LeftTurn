@@ -35,6 +35,7 @@ class GraphService:
             headers = {
                 "Authorization": f"Bearer {self._token}",
                 "Content-Type": "application/json",
+                "User-Agent": "LeftTurn/1.0",
             }
             response = requests.post(
                 url,

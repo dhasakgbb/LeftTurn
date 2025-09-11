@@ -180,6 +180,65 @@ def validate_azure_config() -> Dict[str, bool]:
     
     return config_status
 
+
+def validate_stack_readiness() -> Dict[str, Any]:
+    """Return a consolidated readiness map for major integrations.
+
+    This is used by readiness/health endpoints to give operators a quick
+    view of which components are configured. It avoids making network calls
+    and only checks presence of required environment variables.
+    """
+    import os
+
+    def _tf(v: str | None) -> bool:
+        return bool(v and v.strip())
+
+    fabric = {
+        "endpoint": _tf(os.getenv("FABRIC_ENDPOINT")),
+        "token": _tf(os.getenv("FABRIC_TOKEN")),
+    }
+    search = {
+        "endpoint": _tf(os.getenv("SEARCH_ENDPOINT")),
+        "index": _tf(os.getenv("SEARCH_INDEX")),
+        "apiKey": _tf(os.getenv("SEARCH_API_KEY")),
+        "apiVersion": _tf(os.getenv("SEARCH_API_VERSION")),
+        "semantic": os.getenv("SEARCH_USE_SEMANTIC", "false"),
+        "hybrid": os.getenv("SEARCH_HYBRID", "false"),
+    }
+    graph = {
+        "endpoint": _tf(os.getenv("GRAPH_ENDPOINT")),
+        "token": _tf(os.getenv("GRAPH_TOKEN")),
+    }
+    power_bi = {
+        "workspace": _tf(os.getenv("PBI_WORKSPACE_ID")),
+        "report": _tf(os.getenv("PBI_REPORT_ID")),
+        "dateColumn": os.getenv("PBI_DATE_COLUMN", "vw_Variance/ShipDate"),
+    }
+    storage = {
+        "blob": _tf(os.getenv("AZURE_STORAGE_CONNECTION_STRING")),
+        "cosmos": _tf(os.getenv("AZURE_COSMOSDB_CONNECTION_STRING")),
+        "comm": _tf(os.getenv("AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING")),
+    }
+    openai = {
+        "endpoint": _tf(os.getenv("AZURE_OPENAI_ENDPOINT")),
+        "apiKey": _tf(os.getenv("AZURE_OPENAI_API_KEY")),
+        "embedDeployment": os.getenv("AZURE_OPENAI_EMBED_DEPLOYMENT", ""),
+    }
+
+    return {
+        "fabric": fabric,
+        "search": search,
+        "graph": graph,
+        "powerBi": power_bi,
+        "storage": storage,
+        "openai": openai,
+        "ready": all([
+            fabric["endpoint"],
+            search["endpoint"],
+            search["index"],
+        ]),
+    }
+
 def log_function_execution(func_name: str, start_time: datetime, 
                           end_time: datetime, success: bool, 
                           additional_info: Dict[str, Any] = None):

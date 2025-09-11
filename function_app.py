@@ -5,6 +5,7 @@ from src.functions.data_validator import data_validator_bp
 from src.functions.email_sender import email_sender_bp
 from src.functions.change_tracker import change_tracker_bp
 from src.functions.agent_gateway import agent_gateway_bp
+from src.utils.helpers import validate_stack_readiness
 from src.functions.teams_relay import teams_relay_bp
 
 # Initialize the Function App
@@ -28,8 +29,18 @@ logger = logging.getLogger(__name__)
 def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint"""
     logger.info("Health check requested")
+    detailed = False
+    try:
+        # type: ignore[attr-defined]
+        detailed = (req.params.get("detail") or "").lower() in {"1", "true", "yes"}
+    except Exception:
+        pass
+    payload = {"status": "healthy", "service": "LeftTurn Agents"}
+    if detailed:
+        payload["config"] = validate_stack_readiness()
+    import json as _json
     return func.HttpResponse(
-        body='{"status": "healthy", "service": "LeftTurn Agents"}',
+        body=_json.dumps(payload),
         status_code=200,
         headers={"Content-Type": "application/json"}
     )

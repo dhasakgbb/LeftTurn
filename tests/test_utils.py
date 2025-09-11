@@ -111,3 +111,13 @@ def test_build_pbi_deeplink(monkeypatch):
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+def test_validate_stack_readiness_shape(monkeypatch):
+    monkeypatch.setenv("FABRIC_ENDPOINT", "https://fabric")
+    monkeypatch.setenv("SEARCH_ENDPOINT", "https://search")
+    monkeypatch.setenv("SEARCH_INDEX", "idx")
+    from src.utils.helpers import validate_stack_readiness
+    out = validate_stack_readiness()
+    assert isinstance(out, dict)
+    assert "fabric" in out and "search" in out and "ready" in out
