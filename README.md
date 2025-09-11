@@ -18,13 +18,15 @@ All components run inside your Microsoft 365/Azure tenant and integrate with Mic
 - **Excel Validation Flow**: `src/functions/excel_processor`, `src/services/{excel,validation,email,storage}_service.py`.
 - **Storage**: Azure Blob Storage (files) + Cosmos DB (metadata, validations, notifications, tracking).
 - **Notifications**: Azure Communication Services (Email).
+- **API Management / EasyAuth**: Optional JWT enforcement and rate limiting in front of the Function App.
 
 ## End‑to‑End Flow
 
 1. User asks a question to an agent via the HTTP Agent Gateway (publishable via Copilot Studio/Teams).
 2. The Orchestrator decides whether to use Fabric SQL (numbers) or AI Search (clauses). Microsoft Graph can be used when queries mention calendar/email/files.
 3. The answer returns with grounded evidence (rows or passages).
-4. Separately, Excel files are ingested, validated, and persisted. Failed validations trigger email notifications and change tracking; corrections can be verified with a follow‑up call.
+4. If the query touches curated tables and `PBI_*` variables are configured, the response also includes a Power BI deep link for deeper analysis.
+5. Separately, Excel files are ingested, validated, and persisted. Failed validations trigger email notifications and change tracking; corrections can be verified with a follow‑up call.
 
 ## Fabric Backbone and Data Model
 
@@ -110,6 +112,7 @@ The agent requires the following environment variables:
 - `AZURE_OPENAI_ENDPOINT`: Azure OpenAI endpoint
 - `AZURE_OPENAI_API_KEY`: Azure OpenAI API key
 - `AZURE_OPENAI_MODEL`: Model name (e.g., gpt-4.1)
+- `AZURE_OPENAI_EMBED_DEPLOYMENT`: Embedding deployment name used by the Search skillset
 
 Agents and data tools:
 
@@ -129,6 +132,7 @@ Optional configuration (with defaults):
 - `REMINDER_DAYS_OLD`: Days after which failed validations receive a reminder. Default: `3`.
 - `REMINDER_MAX_ITEMS`: Safety cap for reminders processed per run. Default: `100`.
 - `PBI_WORKSPACE_ID` / `PBI_REPORT_ID`: If set, the agent gateway includes a `powerBiLink` deep-link in structured answers.
+- `SEARCH_DS_CONNECTION_STRING` / `SEARCH_DS_CONTAINER`: Storage settings used by `infra/scripts/seed_search.sh` to create the Search data source. Defaults: storage connection string and `contracts`.
 
 Notes:
 
@@ -151,6 +155,7 @@ Notes:
 - Lineage and audit: Validation results, notifications, and change tracking are recorded in Cosmos DB.
 - Least privilege: Scope tokens/keys to read‑only Fabric SQL and read‑only Search.
 - Guardrails: Orchestrator prefers structured data for numeric claims; each answer payload contains the raw results returned by tools for downstream rendering/citations.
+- EasyAuth/APIM: Enforce Azure AD JWTs and rate‑limit calls at the edge when enabled in Bicep.
 
 ## Next Integrations
 
@@ -162,7 +167,7 @@ Notes:
 - Bicep templates: `infra/bicep/main.bicep` (RG scope). Creates Storage, Cosmos (serverless), Communication Services, Cognitive Services (Form Recognizer), Azure AI Search, Function App (Linux/Python). Outputs resource names.
 - EasyAuth/APIM: Bicep supports enabling App Service Authentication (`enableEasyAuth`) and optionally creates API Management (`enableApim`) for JWT enforcement and rate limiting. APIM policy templates live in `infra/apim/policies`.
 - Terraform: `infra/terraform/` equivalent provisioning using `azurerm` and `azapi` (preview Fabric workspace).
-- Search data-plane seeding: `infra/scripts/seed_search.sh` creates the `contracts` index and a PII‑redacting skillset using REST.
+- Search data-plane seeding: `infra/scripts/seed_search.sh` creates a Blob data source, PII‑redacting skillset (with optional Azure OpenAI embeddings), the `contracts` index, and a scheduled indexer.
 - Fabric SQL views: `fabric/sql/create_views_carrier.sql` seeds curated views.
 - Sample notebooks: `notebooks/*.ipynb` ready to import into Fabric for ERP, carrier structured, and contracts processing.
 
