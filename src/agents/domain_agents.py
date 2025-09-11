@@ -49,4 +49,7 @@ class ClaimsAgent(_BaseAgent):
     "open dispute packet" or "explain variance".
     """
     pass
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
