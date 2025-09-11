@@ -167,6 +167,30 @@ Notes:
 
 An OpenAPI definition for the agent gateway is available at `docs/openapi/agent-gateway.yaml`.
 
+### Key Environment Variables (additions)
+
+- Fabric
+  - `FABRIC_SQL_MODE`: `http|odbc` (default `http`)
+  - `FABRIC_ODBC_CONNECTION_STRING`: optional ODBC connection string
+- Search
+  - `SEARCH_API_VERSION`: API version for Search REST calls (default `2021-04-30-Preview`)
+  - `SEARCH_USE_SEMANTIC`: `true|false` to enable semantic ranking; or `auto` (heuristic)
+  - `SEARCH_HYBRID`: `true|false` to include vector clause when embeddings available
+  - `SEARCH_VECTOR_FIELD`: Name of the vector field in your index (default `pageEmbedding`)
+  - `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_EMBED_DEPLOYMENT`: for embeddings when `SEARCH_HYBRID=true`
+- Power BI
+  - `PBI_WORKSPACE_ID` / `PBI_REPORT_ID`: enables `powerBiLink` in responses
+  - `PBI_DATE_COLUMN`: report column used for date filtering in deeplinks (default `vw_Variance/ShipDate`)
+
+### New SQL Templates (curated views only)
+
+- `variance_by_sku`: Variance by SKU
+- `variance_by_carrier_service`: Variance by Carrier x ServiceLevel
+- `variance_trend_by_carrier`: Monthly variance trend per Carrier
+- `variance_trend_by_sku`: Monthly variance trend per SKU (optional `@sku`)
+
+All templates are parameterized and must only reference curated views (`vw_*`).
+
 ## Operations and Governance
 
 - Lineage and audit: Validation results, notifications, and change tracking are recorded in Cosmos DB.
