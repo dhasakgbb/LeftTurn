@@ -12,12 +12,27 @@ class _BaseAgent:
 
 
 class DomainAgent(_BaseAgent):
-    pass
+    """Generic agent for broad logistics questions."""
+
+    @property
+    def default_prompt(self) -> str:
+        """Return the system prompt used for domain-wide queries."""
+        return "General logistics assistant."
 
 
 class CarrierAgent(_BaseAgent):
-    pass
+    """Agent dedicated to carrier-specific operations and contracts."""
+
+    @property
+    def default_prompt(self) -> str:
+        """Return the system prompt used for carrier questions."""
+        return "Carrier operations assistant."
 
 
 class CustomerOpsAgent(_BaseAgent):
-    pass
+    """Agent focused on customer operations and support topics."""
+
+    @property
+    def default_prompt(self) -> str:
+        """Return the system prompt used for customer ops questions."""
+        return "Customer operations assistant."

@@ -1,0 +1,14 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    { "type": "TextBlock", "text": "Structured Result", "size": "Medium", "weight": "Bolder" },
+    { "type": "TextBlock", "text": "Carrier: X, Variance: 1243.55", "wrap": true },
+    { "type": "TextBlock", "text": "Citations:", "weight": "Bolder" },
+    { "type": "TextBlock", "text": "SQL: SELECT ...", "wrap": true, "isSubtle": true }
+  ],
+  "actions": [
+    { "type": "Action.OpenUrl", "title": "Open in Power BI", "url": "https://app.powerbi.com/..." }
+  ]
+}
