@@ -5,6 +5,8 @@ param env string
 param location string
 
 @description('Base name prefix for resources (letters and numbers only)')
+@minLength(3)
+@maxLength(24)
 param baseName string
 @description('Enable EasyAuth (App Service Authentication) with AAD')
 param enableEasyAuth bool = false
@@ -14,18 +16,12 @@ param aadTenantId string = ''
 @description('Allowed audience (App registration client ID or Application ID URI)')
 param aadAllowedAudience string = ''
 
-@minLength(3)
-@maxLength(24)
 var storageName = toLower(replace('${baseName}stor', '-', ''))
 var funcName    = toLower('${baseName}-func-${env}')
 var cosmosName  = toLower(replace('${baseName}-cosmos', '_', ''))
 var searchName  = toLower(replace('${baseName}-search', '_', ''))
 var commName    = toLower(replace('${baseName}-comm', '_', ''))
 var cogName     = toLower(replace('${baseName}-cog', '_', ''))
-
-resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' existing = {
-  name: resourceGroup().name
-}
 
 // Storage account
 resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
