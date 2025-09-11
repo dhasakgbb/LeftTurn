@@ -14,7 +14,15 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-ALLOWLIST_DIRS = {"venv", ".venv", "site-packages", "__pycache__", "build", "dist", ".git"}
+ALLOWLIST_DIRS = {
+    "venv",
+    ".venv",
+    "site-packages",
+    "__pycache__",
+    "build",
+    "dist",
+    ".git",
+}
 
 PATTERNS = {
     r"^\s*pass\s*$": "Stub 'pass' found",
@@ -23,7 +31,9 @@ PATTERNS = {
     r"#\s*(TODO|FIXME)\b": "TODO/FIXME comment left in code",
     r"from\s+[\w\.]+\s+import\s+\*": "Wildcard import",
     r"\bexcept\s*:\s*": "Bare except",
-    r"\brequests\.(get|post|put|delete|patch|head)\b": "Use httpx instead of requests",
+    (
+        r"\brequests\.(get|post|put|delete|patch|head)\b"
+    ): "Use httpx instead of requests",
 }
 
 

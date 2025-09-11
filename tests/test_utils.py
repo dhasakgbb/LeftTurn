@@ -91,7 +91,9 @@ def test_truncate_string():
 def test_build_pbi_deeplink(monkeypatch):
     monkeypatch.setenv("PBI_WORKSPACE_ID", "ws")
     monkeypatch.setenv("PBI_REPORT_ID", "rep")
-    url = build_pbi_deeplink({"vw_Variance/Carrier": "X", "vw_Variance/SKU": "812"})
+    url = build_pbi_deeplink(
+        {"vw_Variance/Carrier": "X", "vw_Variance/SKU": "812"}
+    )
     assert "groups/ws/reports/rep" in url
     assert "filter=" in url
 
