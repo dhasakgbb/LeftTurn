@@ -242,6 +242,40 @@ class StorageService:
         except Exception as e:
             logger.error(f"Error storing email notification {notification.notification_id}: {str(e)}")
             return False
+
+    def get_email_notification(self, notification_id: str) -> Optional[EmailNotification]:
+        """Retrieve an email notification record by id from Cosmos DB."""
+        if not self.cosmos_client:
+            return None
+        try:
+            database = self.cosmos_client.get_database_client(self.database_name)
+            container = database.get_container_client(self.containers["emails"])
+            query = "SELECT * FROM c WHERE c.id = @id"
+            items = list(
+                container.query_items(
+                    query=query,
+                    parameters=[{"name": "@id", "value": notification_id}],
+                    enable_cross_partition_query=True,
+                )
+            )
+            if not items:
+                return None
+            item = items[0]
+            # Normalize timestamps
+            if isinstance(item.get("sent_timestamp"), str):
+                try:
+                    item["sent_timestamp"] = datetime.fromisoformat(item["sent_timestamp"])  # type: ignore
+                except Exception:
+                    pass
+            if isinstance(item.get("correction_deadline"), str):
+                try:
+                    item["correction_deadline"] = datetime.fromisoformat(item["correction_deadline"])  # type: ignore
+                except Exception:
+                    pass
+            return EmailNotification(**item)
+        except Exception as e:
+            logger.error(f"Error retrieving email notification {notification_id}: {str(e)}")
+            return None
     
     def create_change_tracking_record(self, file_id: str, validation_id: str, 
                                     original_file_hash: str) -> Optional[ChangeTrackingRecord]:
@@ -466,6 +500,11 @@ class StorageService:
             logger.error(f"Error retrieving change history for {file_id}: {str(e)}")
         return results
 
+    def get_latest_tracking_for_file(self, file_id: str) -> Optional[ChangeTrackingRecord]:
+        """Return the most recent change tracking record for a file, if any."""
+        records = self.get_change_history(file_id, limit=1)
+        return records[0] if records else None
+
     def _deserialize_validation_result(self, item: Dict[str, Any]) -> ValidationResult:
         """Convert a stored dict into a ValidationResult model."""
         try:
@@ -512,3 +551,87 @@ class StorageService:
                 total_warnings=item.get("total_warnings", 0),
                 processed_rows=item.get("processed_rows", 0),
             )
+
+    # ----------------------------
+    # Additional helpers for ops
+    # ----------------------------
+
+    def update_validation_status(self, validation_id: str, new_status: ValidationStatus) -> bool:
+        """Update the status field of a validation record."""
+        if not self.cosmos_client:
+            return False
+        try:
+            database = self.cosmos_client.get_database_client(self.database_name)
+            container = database.get_container_client(self.containers["validations"])
+            # Query by id; cross partition
+            items = list(
+                container.query_items(
+                    query="SELECT * FROM c WHERE c.id = @id",
+                    parameters=[{"name": "@id", "value": validation_id}],
+                    enable_cross_partition_query=True,
+                )
+            )
+            if not items:
+                return False
+            item = items[0]
+            item["status"] = new_status.value if isinstance(new_status, ValidationStatus) else str(new_status)
+            container.replace_item(item["id"], item)
+            return True
+        except Exception as e:
+            logger.error(f"Error updating validation status {validation_id}: {str(e)}")
+            return False
+
+    def list_failed_validations(self, days_older_than: int = 3, limit: int = 100) -> List[ValidationResult]:
+        """Return failed validations older than N days (for reminders)."""
+        results: List[ValidationResult] = []
+        if not self.cosmos_client:
+            return results
+        try:
+            database = self.cosmos_client.get_database_client(self.database_name)
+            container = database.get_container_client(self.containers["validations"])
+            # ISO instant cutoff
+            from datetime import timedelta
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=days_older_than)).isoformat()
+            query = (
+                "SELECT TOP @limit * FROM c WHERE c.status = 'failed' AND c.timestamp < @cutoff"
+            )
+            items = list(
+                container.query_items(
+                    query=query,
+                    parameters=[
+                        {"name": "@limit", "value": limit},
+                        {"name": "@cutoff", "value": cutoff},
+                    ],
+                    enable_cross_partition_query=True,
+                )
+            )
+            for it in items:
+                try:
+                    results.append(self._deserialize_validation_result(it))
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.error(f"Error listing failed validations: {str(e)}")
+        return results
+
+    def list_email_recipients_for_validation(self, validation_id: str) -> List[str]:
+        """Return distinct recipient emails recorded for a validation."""
+        recipients: List[str] = []
+        if not self.cosmos_client:
+            return recipients
+        try:
+            database = self.cosmos_client.get_database_client(self.database_name)
+            container = database.get_container_client(self.containers["emails"])
+            items = list(
+                container.query_items(
+                    query=(
+                        "SELECT c.recipient_email FROM c WHERE c.validation_id = @vid"
+                    ),
+                    parameters=[{"name": "@vid", "value": validation_id}],
+                    enable_cross_partition_query=True,
+                )
+            )
+            recipients = sorted({it.get("recipient_email") for it in items if it.get("recipient_email")})  # type: ignore
+        except Exception as e:
+            logger.error(f"Error listing recipients for validation {validation_id}: {str(e)}")
+        return recipients

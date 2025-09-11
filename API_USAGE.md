@@ -280,3 +280,44 @@ reader.onload = function() {
     // Use base64Data in API request
 };
 ```
+## 0. Ask an Agent
+
+Endpoint: `POST /agents/{agent}/ask`
+
+Description: Send a query to a chat agent. `{agent}` is one of `domain`, `carrier`, or `customer`.
+
+Request Body:
+```json
+{
+  "query": "Are we overbilled by Carrier X for SKU 812 this quarter?"
+}
+```
+
+Response:
+```json
+{
+  "agent": "CarrierAgent",
+  "result": [
+    { "carrier": "X", "overbilled": true, "variance": 1243.55 }
+  ]
+}
+```
+
+### Get Notification Status
+
+Endpoint: `GET /notify/status/{notification_id}`
+
+Description: Retrieve delivery/status of a previously sent notification. The status is read from Cosmos DB records.
+
+Response:
+```json
+{
+  "notification_id": "email_1699999999_user_domain_com",
+  "file_id": "excel_abc123_1638360000",
+  "validation_id": "val_excel_abc123_1638360000_1638360001",
+  "recipient_email": "user@domain.com",
+  "status": "sent",
+  "sent_timestamp": "2025-01-01T10:00:00Z",
+  "correction_deadline": "2025-01-04T10:00:00Z"
+}
+```

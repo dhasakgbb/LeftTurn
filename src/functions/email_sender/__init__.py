@@ -301,17 +301,26 @@ async def get_notification_status(req: func.HttpRequest) -> func.HttpResponse:
                 headers={"Content-Type": "application/json"}
             )
         
-        # For now, return basic status
-        # In a full implementation, this would query the storage service
-        # to get actual notification status
-        
+        # Query storage for the email notification record
+        storage_service = StorageService()
+        record = storage_service.get_email_notification(notification_id)
+        if not record:
+            return func.HttpResponse(
+                json.dumps({"error": "Notification not found"}),
+                status_code=404,
+                headers={"Content-Type": "application/json"}
+            )
+
         response_data = {
-            "notification_id": notification_id,
-            "status": "delivered",  # This would be from actual delivery tracking
-            "sent_timestamp": datetime.now().isoformat(),
-            "delivery_timestamp": datetime.now().isoformat()
+            "notification_id": record.notification_id,
+            "file_id": record.file_id,
+            "validation_id": record.validation_id,
+            "recipient_email": record.recipient_email,
+            "status": record.delivery_status,
+            "sent_timestamp": record.sent_timestamp.isoformat(),
+            "correction_deadline": record.correction_deadline.isoformat() if record.correction_deadline else None,
         }
-        
+
         return func.HttpResponse(
             json.dumps(response_data),
             status_code=200,
@@ -330,20 +339,34 @@ async def get_notification_status(req: func.HttpRequest) -> func.HttpResponse:
             headers={"Content-Type": "application/json"}
         )
 
-@email_sender_bp.function_name(name="send_reminder")
-@email_sender_bp.timer_trigger(schedule="0 0 9 * * *")  # Daily at 9 AM
+@email_sender_bp.function_name(name="send_reminders")
+@email_sender_bp.timer_trigger(schedule="0 0 9 * * *")  # Daily at 9 AM UTC
 async def send_reminder_emails(timer: func.TimerRequest) -> None:
-    """
-    Timer-triggered function to send reminder emails for pending corrections
+    """Send reminder emails for failed validations older than N days.
+
+    Controls:
+    - REMINDER_DAYS_OLD: integer days threshold (default 3)
+    - REMINDER_MAX_ITEMS: safety cap (default 100)
     """
     try:
-        logger.info("Starting reminder email job")
-        
-        # This would query the storage service to find validation results
-        # that failed and haven't been corrected within the deadline
-        
-        # For now, just log that the reminder job ran
-        logger.info("Reminder email job completed")
-        
+        import os
+        days = int(os.getenv("REMINDER_DAYS_OLD", "3"))
+        cap = int(os.getenv("REMINDER_MAX_ITEMS", "100"))
+
+        storage_service = StorageService()
+        email_service = EmailService()
+
+        candidates = storage_service.list_failed_validations(days_older_than=days, limit=cap)
+        total_notifications = 0
+        for vr in candidates:
+            recipients = storage_service.list_email_recipients_for_validation(vr.validation_id)
+            if not recipients:
+                continue
+            notes = email_service.send_validation_failure_notification(vr, recipients)
+            for n in notes:
+                storage_service.store_email_notification(n)
+            total_notifications += len(notes)
+
+        logger.info(f"Reminder job processed {len(candidates)} validations; sent {total_notifications} notifications")
     except Exception as e:
         logger.error(f"Error in reminder email job: {str(e)}")

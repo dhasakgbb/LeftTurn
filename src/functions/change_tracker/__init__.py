@@ -7,6 +7,7 @@ from src.services.excel_service import ExcelService
 from src.services.validation_service import ValidationService
 from src.services.storage_service import StorageService
 from src.services.email_service import EmailService
+from src.models.validation_models import ValidationStatus
 from src.utils.helpers import generate_file_hash, log_function_execution, get_correlation_id
 
 logger = logging.getLogger(__name__)
@@ -113,9 +114,15 @@ async def verify_changes(req: func.HttpRequest) -> func.HttpResponse:
         # Store updated validation result
         storage_service.store_validation_result(updated_validation_result)
         
-        # Update change tracking record
-        # Find existing tracking record for the original file
-        # (This would need to be implemented in storage service)
+        # Update existing change tracking record for the original file (if present)
+        latest_track = storage_service.get_latest_tracking_for_file(original_file_id)
+        if latest_track:
+            storage_service.update_change_tracking(
+                tracking_id=latest_track.tracking_id,
+                updated_file_hash=updated_file_hash,
+                change_description=change_description,
+                file_id=original_file_id,
+            )
         
         # Determine if changes were successful
         changes_successful = updated_validation_result.total_errors == 0
@@ -139,6 +146,11 @@ async def verify_changes(req: func.HttpRequest) -> func.HttpResponse:
         
         # If validation passed, send success notification
         if changes_successful:
+            # Mark the latest original validation as corrected
+            latest = storage_service.get_latest_validation_for_file(original_file_id)
+            if latest and latest.status.value == "failed":
+                storage_service.update_validation_status(latest.validation_id, ValidationStatus.CORRECTED)
+
             # Extract email addresses from updated data
             recipient_emails = excel_service.extract_email_column(updated_validation_data)
             
