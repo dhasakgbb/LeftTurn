@@ -156,7 +156,6 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             status_code=200,
             headers={"Content-Type": "application/json"},
         )
-<<<<<<< Updated upstream
     except Exception as e:
         finished = datetime.now()
         log_function_execution(
@@ -171,13 +170,6 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
 
 
 def _extract_value(text: str, key: str) -> str | None:
-    import re
-    m = re.search(rf"{key}[:=\s]+([\w\-\.]+)", text, re.IGNORECASE)
-    return m.group(1) if m else None
-=======
-
-
-def _extract_value(text: str, key: str) -> str | None:
     try:
         import re
         m = re.search(rf"{key}[:=\s]+([\w\-\.]+)", text, re.IGNORECASE)
@@ -185,4 +177,3 @@ def _extract_value(text: str, key: str) -> str | None:
     except Exception:
         # Avoid raising from helper; simply return None on parse failure
         return None
->>>>>>> Stashed changes

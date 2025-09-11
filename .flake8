@@ -1,0 +1,6 @@
+[flake8]
+exclude = .venv,venv,.git,__pycache__,.pytest_cache,build,dist
+max-line-length = 100
+per-file-ignores =
+    tests/*: E501,W291,W293,W391
+
