@@ -17,6 +17,7 @@ from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
 from src.utils.helpers import get_correlation_id, log_function_execution
 from src.utils.pbi import build_pbi_deeplink
+from src.utils.cards import build_answer_card
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,7 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
                 headers={"Content-Type": "application/json"},
             )
         query = (body or {}).get("query")
+        fmt = (body or {}).get("format") or req.params.get("format")
         if not query or not isinstance(query, str):
             return func.HttpResponse(
                 json.dumps({"error": "'query' is required"}),
@@ -136,6 +138,15 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             pbi = build_pbi_deeplink({k: v for k, v in filters.items() if v})
             if pbi:
                 result_payload["powerBiLink"] = pbi
+
+        # If Teams requests a card, return an Adaptive Card payload
+        if fmt and fmt.lower() == "card":
+            card = build_answer_card(result_payload)
+            return func.HttpResponse(
+                json.dumps(card),
+                status_code=200,
+                headers={"Content-Type": "application/json"},
+            )
 
         return func.HttpResponse(
             json.dumps({"agent": agent.__class__.__name__, **result_payload}),
