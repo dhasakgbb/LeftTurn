@@ -10,6 +10,7 @@ What it creates
 - Azure Cognitive Services (Document Intelligence / Form Recognizer)
 - Azure Function App (Linux, Python)
 - Optional: Microsoft Fabric workspace via AzAPI (preview)
+- Optional: App Service Authentication (EasyAuth) and API Management (APIM) for JWT auth and rate limiting
 
 Quick start (Bicep)
 1) Ensure Azure CLI is logged in: `az login`
@@ -18,7 +19,7 @@ Quick start (Bicep)
      --name leftturn-bicep-$(date +%s) \
      --location eastus \
      --template-file infra/bicep/main.bicep \
-     --parameters env=dev location=eastus baseName=leftturn${RANDOM}
+     --parameters env=dev location=eastus baseName=leftturn${RANDOM} enableEasyAuth=false enableApim=false
 
 Quick start (Terraform)
 1) cd infra/terraform
@@ -26,9 +27,17 @@ Quick start (Terraform)
 3) terraform apply -var 'env=dev' -var 'location=eastus' -var 'base_name=leftturn'
 
 Seed assets
-- Search data-plane: run `infra/scripts/seed_search.sh` to create data source (Blob), skillset (PII redaction), index, and indexer (scheduled).
+- Search data-plane: run `infra/scripts/seed_search.sh` to create data source (Blob), skillset (PII redaction + optional embeddings), index, and indexer (scheduled).
 - Fabric SQL views: use files in `fabric/sql/` in your Fabric workspace SQL endpoint.
 - Notebooks: import `notebooks/*.ipynb` into Microsoft Fabric.
+
+APIM & EasyAuth
+- EasyAuth: set `enableEasyAuth=true` and pass `aadTenantId` and `aadAllowedAudience` parameters to enforce AAD on the Function App.
+- APIM: set `enableApim=true`. Use policy templates in `infra/apim/policies/` (global.xml) for JWT validation and rate limiting.
+
+Embeddings for Search
+- To populate vector embeddings automatically, set these before running `infra/scripts/seed_search.sh`:
+  - `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_EMBED_DEPLOYMENT`
 
 Notes
 - Some resources (Search index, skillset) use data-plane APIs; ARM cannot create them directly, so we provide scripts.

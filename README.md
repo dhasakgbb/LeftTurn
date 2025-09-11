@@ -128,6 +128,7 @@ Optional configuration (with defaults):
 - `DEFAULT_SENDER_EMAIL`: Sender address for email notifications. Default: `noreply@yourdomain.com`.
 - `REMINDER_DAYS_OLD`: Days after which failed validations receive a reminder. Default: `3`.
 - `REMINDER_MAX_ITEMS`: Safety cap for reminders processed per run. Default: `100`.
+- `PBI_WORKSPACE_ID` / `PBI_REPORT_ID`: If set, the agent gateway includes a `powerBiLink` deep-link in structured answers.
 
 Notes:
 
@@ -159,6 +160,7 @@ Notes:
 ## Infrastructure-as-Code
 
 - Bicep templates: `infra/bicep/main.bicep` (RG scope). Creates Storage, Cosmos (serverless), Communication Services, Cognitive Services (Form Recognizer), Azure AI Search, Function App (Linux/Python). Outputs resource names.
+- EasyAuth/APIM: Bicep supports enabling App Service Authentication (`enableEasyAuth`) and optionally creates API Management (`enableApim`) for JWT enforcement and rate limiting. APIM policy templates live in `infra/apim/policies`.
 - Terraform: `infra/terraform/` equivalent provisioning using `azurerm` and `azapi` (preview Fabric workspace).
 - Search data-plane seeding: `infra/scripts/seed_search.sh` creates the `contracts` index and a PII‑redacting skillset using REST.
 - Fabric SQL views: `fabric/sql/create_views_carrier.sql` seeds curated views.

@@ -1,11 +1,12 @@
 import pytest
 from src.utils.helpers import (
-    validate_email_format, 
-    generate_file_hash, 
+    validate_email_format,
+    generate_file_hash,
     sanitize_filename,
     format_file_size,
-    truncate_string
+    truncate_string,
 )
+from src.utils.pbi import build_pbi_deeplink
 
 def test_validate_email_format():
     """Test email format validation"""
@@ -85,6 +86,14 @@ def test_truncate_string():
     short_text = "Short"
     result = truncate_string(short_text, 20)
     assert result == short_text
+
+
+def test_build_pbi_deeplink(monkeypatch):
+    monkeypatch.setenv("PBI_WORKSPACE_ID", "ws")
+    monkeypatch.setenv("PBI_REPORT_ID", "rep")
+    url = build_pbi_deeplink({"vw_Variance/Carrier": "X", "vw_Variance/SKU": "812"})
+    assert "groups/ws/reports/rep" in url
+    assert "filter=" in url
 
 if __name__ == "__main__":
     pytest.main([__file__])

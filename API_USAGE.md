@@ -303,7 +303,8 @@ Response:
   ],
   "citations": [
     { "type": "table", "source": "fabric", "sql": "SELECT ..." }
-  ]
+  ],
+  "powerBiLink": "https://app.powerbi.com/groups/<ws>/reports/<rep>/ReportSection?filter=vw_Variance/Carrier%20eq%20'X'"
 }
 ```
 

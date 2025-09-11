@@ -11,6 +11,7 @@ import responses
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
+from src.services.fabric_data_agent import FabricDataAgent
 
 
 def test_orchestrator_routes_structured_queries() -> None:
@@ -168,3 +169,23 @@ def test_orchestrator_citations_unstructured() -> None:
         assert payload["tool"] == "ai_search"
         assert len(payload["citations"]) >= 1
         assert "excerpt" in payload["citations"][0]
+
+
+def test_fabric_run_sql_params_sends_parameters() -> None:
+    with responses.RequestsMock() as rsps:
+        def _cb(request):
+            body = request.body
+            import json as _json
+            data = _json.loads(body)
+            assert "parameters" in data
+            assert {"name": "@carrier", "value": "X"} in data["parameters"]
+            return (200, {}, _json.dumps({"rows": []}))
+
+        rsps.add_callback(
+            "POST",
+            "https://fabric.test/sql",
+            callback=_cb,
+            content_type="application/json",
+        )
+        agent = FabricDataAgent("https://fabric.test", token="T")
+        agent.run_sql_params("SELECT 1 WHERE carrier = @carrier", {"@carrier": "X"})

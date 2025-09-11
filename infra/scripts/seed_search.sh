@@ -48,10 +48,18 @@ az rest --method put \
 
 # --- Skillset ---
 echo "Creating/Updating skillset: $SKILLSET_NAME"
+# If AOAI env vars are present, substitute into the skillset for embedding
+if [[ -n "${AZURE_OPENAI_ENDPOINT:-}" && -n "${AZURE_OPENAI_API_KEY:-}" && -n "${AZURE_OPENAI_EMBED_DEPLOYMENT:-}" ]]; then
+  sed "s#\$\{AZURE_OPENAI_ENDPOINT\}#${AZURE_OPENAI_ENDPOINT}#g; s#\$\{AZURE_OPENAI_API_KEY\}#${AZURE_OPENAI_API_KEY}#g; s#\$\{AZURE_OPENAI_EMBED_DEPLOYMENT\}#${AZURE_OPENAI_EMBED_DEPLOYMENT}#g" \
+    infra/search/skillset.contracts.json > "$tmpdir/skillset.json"
+  SKILL_BODY="@$tmpdir/skillset.json"
+else
+  SKILL_BODY="@infra/search/skillset.contracts.json"
+fi
 az rest --method put \
   --uri "$BASE/skillsets/$SKILLSET_NAME?api-version=$API_VERSION" \
   --headers "Content-Type=application/json" "api-key=$SEARCH_ADMIN_KEY" \
-  --body @infra/search/skillset.contracts.json >/dev/null
+  --body $SKILL_BODY >/dev/null
 
 # --- Index ---
 echo "Creating/Updating index: $INDEX_NAME"

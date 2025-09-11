@@ -1,6 +1,6 @@
 {
   "name": "contracts-skillset",
-  "description": "Extract text and redact PII for contract documents.",
+  "description": "Extract text, redact PII, and produce embeddings for contract documents.",
   "skills": [
     {
       "@odata.type": "#Microsoft.Skills.Text.OcrSkill",
@@ -21,6 +21,18 @@
       "context": "/document",
       "inputs": [ { "name": "text", "source": "/document/pages/*/ocrText" } ],
       "outputs": [ { "name": "text", "targetName": "redactedText" } ]
+    },
+    {
+      "@odata.type": "#Microsoft.Skills.Custom.AzureOpenAIEmbeddingSkill",
+      "description": "Generate vector embeddings for contract text using Azure OpenAI",
+      "context": "/document/pages/*",
+      "inputs": [ { "name": "text", "source": "/document/pages/*/ocrText" } ],
+      "outputs": [ { "name": "embedding", "targetName": "pageEmbedding" } ],
+      "azureOpenAIParameters": {
+        "resourceUri": "${AZURE_OPENAI_ENDPOINT}",
+        "deploymentId": "${AZURE_OPENAI_EMBED_DEPLOYMENT}",
+        "apiKey": "${AZURE_OPENAI_API_KEY}"
+      }
     }
   ]
 }

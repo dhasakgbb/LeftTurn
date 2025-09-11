@@ -6,6 +6,13 @@ param location string
 
 @description('Base name prefix for resources (letters and numbers only)')
 param baseName string
+@description('Enable EasyAuth (App Service Authentication) with AAD')
+param enableEasyAuth bool = false
+@description('AAD tenant Id for EasyAuth')
+@secure()
+param aadTenantId string = ''
+@description('Allowed audience (App registration client ID or Application ID URI)')
+param aadAllowedAudience string = ''
 
 @minLength(3)
 @maxLength(24)
@@ -147,6 +154,18 @@ resource func 'Microsoft.Web/sites@2022-03-01' = {
     serverFarmId: plan.id
     siteConfig: {
       linuxFxVersion: 'Python|3.10'
+      authSettingsV2: enableEasyAuth ? {
+        platform: { enabled: true }
+        globalValidation: { requireAuthentication: true }
+        identityProviders: {
+          azureActiveDirectory: {
+            enabled: true
+            registration: { openIdIssuer: 'https://login.microsoftonline.com/${aadTenantId}/v2.0' }
+            validation: { allowedAudiences: [ aadAllowedAudience ] }
+          }
+        }
+        login: { tokenStore: { enabled: true } }
+      } : null
       appSettings: [
         { name: 'AzureWebJobsStorage', value: storage.listKeys().keys[0].value }
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'python' }
@@ -158,6 +177,23 @@ resource func 'Microsoft.Web/sites@2022-03-01' = {
     httpsOnly: true
   }
 }
+
+// API Management (optional)
+@description('Deploy API Management (APIM) and import Function App endpoints')
+param enableApim bool = false
+@description('APIM SKU (Consumption or Developer recommended for dev)')
+param apimSkuName string = 'Consumption'
+
+resource apim 'Microsoft.ApiManagement/service@2023-05-01-preview' = if (enableApim) {
+  name: '${baseName}-apim-${env}'
+  location: location
+  sku: { name: apimSkuName, capacity: 0 }
+  properties: {
+    publisherName: 'leftturn'
+    publisherEmail: 'admin@example.com'
+  }
+}
+
 
 output functionAppName string = func.name
 output storageAccountName string = storage.name

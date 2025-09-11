@@ -16,6 +16,7 @@ from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
 from src.utils.helpers import get_correlation_id, log_function_execution
+from src.utils.pbi import build_pbi_deeplink
 
 logger = logging.getLogger(__name__)
 
@@ -123,11 +124,33 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             {"agent": agent.__class__.__name__, "correlation_id": cid},
         )
 
+        # If structured SQL was used, try to provide a Power BI link
+        if result_payload.get("tool") == "fabric_sql":
+            # naive filter inference from query keywords
+            ql = query.lower()
+            filters = {}
+            if "carrier" in ql:
+                filters["vw_Variance/Carrier"] = _extract_value(query, "carrier") or ""
+            if "sku" in ql:
+                filters["vw_Variance/SKU"] = _extract_value(query, "sku") or ""
+            pbi = build_pbi_deeplink({k: v for k, v in filters.items() if v})
+            if pbi:
+                result_payload["powerBiLink"] = pbi
+
         return func.HttpResponse(
             json.dumps({"agent": agent.__class__.__name__, **result_payload}),
             status_code=200,
             headers={"Content-Type": "application/json"},
         )
+
+
+def _extract_value(text: str, key: str) -> str | None:
+    try:
+        import re
+        m = re.search(rf"{key}[:=\s]+([\w\-\.]+)", text, re.IGNORECASE)
+        return m.group(1) if m else None
+    except Exception:
+        return None
     except Exception as e:
         finished = datetime.now()
         log_function_execution("agent_ask", started, finished, False, {"correlation_id": cid})
