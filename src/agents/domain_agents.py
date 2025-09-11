@@ -48,6 +48,10 @@ class ClaimsAgent(_BaseAgent):
 
     @property
     def default_prompt(self) -> str:
+<<<<<<< Updated upstream
         """Return the system prompt used for claims questions."""
         return "Claims assistant."
 
+=======
+        return "Claims and dispute assistant."
+>>>>>>> Stashed changes
