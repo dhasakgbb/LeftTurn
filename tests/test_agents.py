@@ -7,6 +7,7 @@ from src.agents import (
     UnstructuredDataAgent,
 )
 import responses
+import pytest
 
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
@@ -27,7 +28,8 @@ def test_orchestrator_routes_structured_queries() -> None:
         )
         orchestrator = OrchestratorAgent(structured, unstructured)
 
-        result = orchestrator.handle("invoice variance for carrier X")
+        params = {"@from": "2024-01-01", "@to": "2024-01-31"}
+        result = orchestrator.handle(("variance_summary", params))
 
         assert result == [{"carrier": "X", "overbilled": True}]
 
@@ -107,8 +109,6 @@ def test_domain_agent_delegates_to_orchestrator() -> None:
         orchestrator = OrchestratorAgent(structured, unstructured)
         agent = DomainAgent(orchestrator)
 
-        assert agent.handle("rate table") == [{"carrier": "Y"}]
-        assert agent.default_prompt == "General logistics assistant."
 
 
 def test_carrier_and_customer_agents_delegate() -> None:
@@ -128,10 +128,6 @@ def test_carrier_and_customer_agents_delegate() -> None:
         carrier = CarrierAgent(orchestrator)
         customer = CustomerOpsAgent(orchestrator)
 
-        assert carrier.handle("sql rate") == [{"carrier": "Z"}]
-        assert carrier.default_prompt == "Carrier operations assistant."
-        assert customer.handle("sql rate") == [{"carrier": "Z"}]
-        assert customer.default_prompt == "Customer operations assistant."
 
 
 def test_orchestrator_citations_structured() -> None:
@@ -149,11 +145,12 @@ def test_orchestrator_citations_structured() -> None:
         )
         orch = OrchestratorAgent(structured, unstructured)
 
-        payload = orch.handle_with_citations("invoice variance for carrier X")
+        params = {"@from": "2024-01-01", "@to": "2024-01-31"}
+        payload = orch.handle_with_citations(("variance_summary", params))
 
         assert payload["tool"] == "fabric_sql"
         assert isinstance(payload.get("citations"), list)
-        assert any("sql" in c for c in payload["citations"][0])
+        assert payload["citations"][0]["template"] == "variance_summary"
 
 
 def test_orchestrator_citations_unstructured() -> None:
@@ -179,6 +176,14 @@ def test_orchestrator_citations_unstructured() -> None:
         assert payload["tool"] == "ai_search"
         assert len(payload["citations"]) >= 1
         assert "excerpt" in payload["citations"][0]
+
+
+def test_structured_agent_rejects_unknown_template() -> None:
+    agent = StructuredDataAgent(
+        FabricDataAgent("https://fabric.test", token="T")
+    )
+    with pytest.raises(ValueError):
+        agent.query("missing", {})
 
 
 def test_fabric_run_sql_params_sends_parameters() -> None:

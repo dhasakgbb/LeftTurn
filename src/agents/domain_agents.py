@@ -7,7 +7,7 @@ class _BaseAgent:
     def __init__(self, orchestrator: Any) -> None:
         self._orchestrator = orchestrator
 
-    def handle(self, query: str) -> Any:
+    def handle(self, query: Any) -> Any:
         return self._orchestrator.handle(query)
 
 
