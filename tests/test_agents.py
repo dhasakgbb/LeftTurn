@@ -94,117 +94,25 @@ def test_orchestrator_routes_graph_queries() -> None:
         assert result == ["mail about invoice"]
 
 
-def test_domain_agent_delegates_to_orchestrator() -> None:
-    with responses.RequestsMock() as rsps:
-        rsps.add(
-            "POST",
-            "https://fabric.test/sql",
-            json={"rows": [{"carrier": "Y"}]},
-        )
-        structured = StructuredDataAgent(
-            FabricDataAgent("https://fabric.test", token="T")
-        )
-        unstructured = UnstructuredDataAgent(
-            SearchService("https://search.test", "contracts", api_key="K")
-        )
-        orchestrator = OrchestratorAgent(structured, unstructured)
-        agent = DomainAgent(orchestrator)
+@pytest.mark.parametrize(
+    "agent_cls",
+    [DomainAgent, CarrierAgent, CustomerOpsAgent, ClaimsAgent],
+)
+def test_agents_delegate_and_expose_prompt(agent_cls) -> None:
+    class DummyOrchestrator:
+        def __init__(self) -> None:
+            self.received = None
 
+        def handle(self, query):
+            self.received = query
+            return "ok"
 
+    orch = DummyOrchestrator()
+    agent = agent_cls(orch)
 
-def test_carrier_and_customer_agents_delegate() -> None:
-    with responses.RequestsMock() as rsps:
-        rsps.add(
-            "POST",
-            "https://fabric.test/sql",
-            json={"rows": [{"carrier": "Z"}]},
-        )
-        structured = StructuredDataAgent(
-            FabricDataAgent("https://fabric.test", token="T")
-        )
-        unstructured = UnstructuredDataAgent(
-            SearchService("https://search.test", "contracts", api_key="K")
-        )
-        orchestrator = OrchestratorAgent(structured, unstructured)
-        carrier = CarrierAgent(orchestrator)
-        customer = CustomerOpsAgent(orchestrator)
-
-
-
-def test_claims_agent_delegates() -> None:
-    with responses.RequestsMock() as rsps:
-        rsps.add(
-            "POST",
-            "https://fabric.test/sql",
-            json={"rows": [{"carrier": "Z"}]},
-        )
-        structured = StructuredDataAgent(
-            FabricDataAgent("https://fabric.test", token="T")
-        )
-        unstructured = UnstructuredDataAgent(
-            SearchService("https://search.test", "contracts", api_key="K")
-        )
-        orchestrator = OrchestratorAgent(structured, unstructured)
-        claims = ClaimsAgent(orchestrator)
-
-        assert claims.handle("sql rate") == [{"carrier": "Z"}]
-
-
-def test_claims_agent_delegates() -> None:
-    with responses.RequestsMock() as rsps:
-        rsps.add(
-            "POST",
-            "https://fabric.test/sql",
-            json={"rows": [{"carrier": "Z"}]},
-        )
-        structured = StructuredDataAgent(
-            FabricDataAgent("https://fabric.test", token="T")
-        )
-        unstructured = UnstructuredDataAgent(
-            SearchService("https://search.test", "contracts", api_key="K")
-        )
-        orchestrator = OrchestratorAgent(structured, unstructured)
-        claims = ClaimsAgent(orchestrator)
-
-        assert claims.handle("sql rate") == [{"carrier": "Z"}]
-
-
-def test_claims_agent_delegates() -> None:
-    with responses.RequestsMock() as rsps:
-        rsps.add(
-            "POST",
-            "https://fabric.test/sql",
-            json={"rows": [{"carrier": "Z"}]},
-        )
-        structured = StructuredDataAgent(
-            FabricDataAgent("https://fabric.test", token="T")
-        )
-        unstructured = UnstructuredDataAgent(
-            SearchService("https://search.test", "contracts", api_key="K")
-        )
-        orchestrator = OrchestratorAgent(structured, unstructured)
-        claims = ClaimsAgent(orchestrator)
-
-        assert claims.handle("sql rate") == [{"carrier": "Z"}]
-
-
-def test_claims_agent_delegates() -> None:
-    with responses.RequestsMock() as rsps:
-        rsps.add(
-            "POST",
-            "https://fabric.test/sql",
-            json={"rows": [{"carrier": "Z"}]},
-        )
-        structured = StructuredDataAgent(
-            FabricDataAgent("https://fabric.test", token="T")
-        )
-        unstructured = UnstructuredDataAgent(
-            SearchService("https://search.test", "contracts", api_key="K")
-        )
-        orchestrator = OrchestratorAgent(structured, unstructured)
-        claims = ClaimsAgent(orchestrator)
-
-        assert claims.handle("sql rate") == [{"carrier": "Z"}]
+    assert agent.handle("ping") == "ok"
+    assert orch.received == "ping"
+    assert isinstance(agent.default_prompt, str) and agent.default_prompt
 
 
 def test_orchestrator_citations_structured() -> None:
