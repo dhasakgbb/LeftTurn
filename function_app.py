@@ -5,6 +5,7 @@ from src.functions.data_validator import data_validator_bp
 from src.functions.email_sender import email_sender_bp
 from src.functions.change_tracker import change_tracker_bp
 from src.functions.agent_gateway import agent_gateway_bp
+from src.functions.teams_relay import teams_relay_bp
 
 # Initialize the Function App
 app = func.FunctionApp()
@@ -15,6 +16,7 @@ app.register_functions(data_validator_bp)
 app.register_functions(email_sender_bp)
 app.register_functions(change_tracker_bp)
 app.register_functions(agent_gateway_bp)
+app.register_functions(teams_relay_bp)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

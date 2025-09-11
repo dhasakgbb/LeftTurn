@@ -142,13 +142,16 @@ Notes:
 
 ## Key Endpoints
 
-- `POST /api/agents/{agent}/ask` — chat to `domain|carrier|customer` agents with `{ "query": "..." }`. Returns `{ tool, result, citations }` for evidence-friendly rendering.
+- `POST /api/agents/{agent}/ask` — chat to `domain|carrier|customer|claims` agents with `{ "query": "..." }`. Returns `{ tool, result, citations }` and optional `powerBiLink`. Add `?format=card` or `{ "format": "card" }` to receive an Adaptive Card (for Teams).
+- `POST /api/teams/ask` — Teams relay that always returns an Adaptive Card for `{ query, agent }`.
 - `POST /api/process` — upload and validate an Excel file (base64 payload).
 - `GET /api/status/{file_id}` — check processing and latest validation.
 - `POST /api/notify` — send email notifications for a validation.
 - `GET /api/notify/status/{notification_id}` — delivery/status of a notification backed by Cosmos DB.
 - `POST /api/verify` — verify corrections with an updated file.
 - `GET /api/history/{file_id}` — change tracking history.
+
+An OpenAPI definition for the agent gateway is available at `docs/openapi/agent-gateway.yaml`.
 
 ## Operations and Governance
 
@@ -170,6 +173,18 @@ Notes:
 - Search data-plane seeding: `infra/scripts/seed_search.sh` creates a Blob data source, PII‑redacting skillset (with optional Azure OpenAI embeddings), the `contracts` index, and a scheduled indexer.
 - Fabric SQL views: `fabric/sql/create_views_carrier.sql` seeds curated views.
 - Sample notebooks: `notebooks/*.ipynb` ready to import into Fabric for ERP, carrier structured, and contracts processing.
+
+## Teams Integration
+- Use Copilot Studio (org agents) or a native Teams App (Bot + Message Extension).
+- Native manifest starter: `teams/manifest/manifest.dev.json`.
+- Adaptive Card builder: `src/utils/cards.py` (adds an “Open in Power BI” button when configured).
+- See `docs/teams-integration.md` for step-by-step instructions.
+
+## Claims Agent (Logistics Value Add)
+- New persona `claims` focuses on disputes/claims workflows (e.g., SLA breaches, overbilling).
+- Typical actions: “Create dispute packet for invoice 123”, “Summarize evidence for Carrier X Q2”, “Status of claim 456”.
+- Pattern: Structured facts from Fabric (variance, shipments) + contract clauses from Search; package an evidence bundle linking both.
+- Integrations: TMS/WMS (status events), EDI 210/214, SharePoint/OneDrive for packet storage, ServiceNow/Jira for ticketing, Outlook for templated emails.
 
 ## License
 

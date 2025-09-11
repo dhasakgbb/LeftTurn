@@ -11,6 +11,7 @@ from src.agents import (
     DomainAgent,
     CarrierAgent,
     CustomerOpsAgent,
+    ClaimsAgent,
 )
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
@@ -79,6 +80,8 @@ def _resolve_chat_agent(name: str, orchestrator: OrchestratorAgent):
         return CarrierAgent(orchestrator)
     if name in ("customer", "custops", "ops"):
         return CustomerOpsAgent(orchestrator)
+    if name in ("claim", "claims", "dispute"):
+        return ClaimsAgent(orchestrator)
     return DomainAgent(orchestrator)
 
 

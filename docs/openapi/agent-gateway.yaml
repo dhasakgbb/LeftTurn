@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: LeftTurn Agent Gateway
+  version: 0.1.0
+servers:
+  - url: https://{host}/api
+    variables:
+      host:
+        default: your-function-app.azurewebsites.net
+paths:
+  /agents/{agent}/ask:
+    post:
+      summary: Ask an agent (Domain, Carrier, Customer, Claims)
+      parameters:
+        - in: path
+          name: agent
+          required: true
+          schema:
+            type: string
+            enum: [domain, carrier, customer, claims]
+        - in: query
+          name: format
+          required: false
+          schema:
+            type: string
+            enum: [json, card]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query: { type: string }
+                format: { type: string, enum: [json, card] }
+              required: [query]
+      responses:
+        '200':
+          description: Agent response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      agent: { type: string }
+                      tool: { type: string }
+                      result: {}
+                      citations:
+                        type: array
+                        items: { type: object }
+                      powerBiLink: { type: string }
+                  - type: object
+                    description: Adaptive Card payload
+        '400': { description: Bad request }
+        '401': { description: Unauthorized }
