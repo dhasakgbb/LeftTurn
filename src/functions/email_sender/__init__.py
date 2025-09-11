@@ -4,7 +4,6 @@ import json
 from datetime import datetime
 from src.services.email_service import EmailService
 from src.services.storage_service import StorageService
-from src.models.validation_models import ValidationResult, ValidationStatus
 from src.utils.helpers import log_function_execution, validate_email_format, get_correlation_id
 
 logger = logging.getLogger(__name__)

@@ -114,6 +114,12 @@ async def verify_changes(req: func.HttpRequest) -> func.HttpResponse:
         # Store updated validation result
         storage_service.store_validation_result(updated_validation_result)
         
+        # Determine if changes were successful
+        changes_successful = updated_validation_result.total_errors == 0
+
+        # Compare file contents to detect actual changes
+        change_description = "File updated and re-validated"
+
         # Update existing change tracking record for the original file (if present)
         latest_track = storage_service.get_latest_tracking_for_file(original_file_id)
         if latest_track:
@@ -123,12 +129,6 @@ async def verify_changes(req: func.HttpRequest) -> func.HttpResponse:
                 change_description=change_description,
                 file_id=original_file_id,
             )
-        
-        # Determine if changes were successful
-        changes_successful = updated_validation_result.total_errors == 0
-        
-        # Compare file contents to detect actual changes
-        change_description = "File updated and re-validated"
         
         # Prepare response
         response_data = {
