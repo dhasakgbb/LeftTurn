@@ -246,5 +246,18 @@ def handle_agent_query(
         )
         if pbi:
             result_payload["powerBiLink"] = pbi
+    # Row-capping for stability (applies to list results)
+    try:
+        import os as _os
+        cap = int(_os.getenv("AGENT_MAX_ROWS", "0"))
+        if cap > 0 and isinstance(result_payload.get("result"), list):
+            total = len(result_payload["result"])  # type: ignore[index]
+            if total > cap:
+                result_payload["result"] = result_payload["result"][:cap]  # type: ignore[index]
+                result_payload["truncated"] = True
+                result_payload["resultTotal"] = total
+                result_payload["resultReturned"] = cap
+    except Exception:
+        pass
 
     return result_payload, agent_name

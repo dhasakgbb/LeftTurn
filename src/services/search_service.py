@@ -50,7 +50,11 @@ class SearchService:
         if self._hybrid:
             embedding = self._embed(query)
             if embedding:
-                body["vector"] = {"value": embedding, "fields": self._vector_field, "k": top}
+                body["vector"] = {
+                    "value": embedding,
+                    "fields": self._vector_field,
+                    "k": top,
+                }
 
         response = _post_with_retry(url, body, headers)
         docs = response.json().get("value", [])
@@ -79,7 +83,7 @@ class SearchService:
             if not (endpoint and key and dep):
                 return None
             url = f"{endpoint}/openai/deployments/{dep}/embeddings?api-version=2023-05-15"
-            headers = {"api-key": key, "Content-Type": "application/json"}
+            headers = {"api-key": key, "Content-Type": "application/json", "User-Agent": "LT/1"}
             payload = {"input": text}
             r = _rq.post(url, headers=headers, json=payload, timeout=10)
             r.raise_for_status()
