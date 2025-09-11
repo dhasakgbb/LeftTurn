@@ -38,10 +38,19 @@ def test_orchestrator_routes_structured_queries() -> None:
 
 def test_orchestrator_routes_structured_via_router() -> None:
     with responses.RequestsMock() as rsps:
-        rsps.add(
+        def _cb(request):
+            import json as _json
+            data = _json.loads(request.body)
+            # Ensure @from/@to are sent after inference
+            p = {d["name"] for d in data.get("parameters", [])}
+            assert "@from" in p and "@to" in p
+            return (200, {}, _json.dumps({"rows": [{"carrier": "X", "overbilled": True}]}))
+
+        rsps.add_callback(
             "POST",
             "https://fabric.test/sql",
-            json={"rows": [{"carrier": "X", "overbilled": True}]},
+            callback=_cb,
+            content_type="application/json",
         )
         fabric = FabricDataAgent("https://fabric.test", token="T")
         structured = StructuredDataAgent(fabric)

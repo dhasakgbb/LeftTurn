@@ -29,7 +29,7 @@ def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint"""
     logger.info("Health check requested")
     return func.HttpResponse(
-        body='{"status": "healthy", "service": "Azure Excel Data Validation Agent"}',
+        body='{"status": "healthy", "service": "LeftTurn Agents"}',
         status_code=200,
         headers={"Content-Type": "application/json"}
     )

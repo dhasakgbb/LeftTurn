@@ -1,6 +1,7 @@
 """Simple orchestrator that routes queries to specialized agents."""
 from __future__ import annotations
 from typing import Any
+from datetime import date, timedelta
 
 from src.agents import router
 from src.services.sql_templates import TEMPLATES
@@ -35,6 +36,8 @@ class OrchestratorAgent:
                 if decision["tool"] == "sql":
                     name = decision["name"]
                     params = decision.get("params", {})
+                    if "@from" not in params or "@to" not in params:
+                        params = {**params, **_infer_time_range(query)}
                     return self._structured_agent.query(name, params)
                 if decision["tool"] == "graph" and self._graph_service:
                     return self._graph_service.get_resource(query)
@@ -79,6 +82,8 @@ class OrchestratorAgent:
                 if decision["tool"] == "sql":
                     template = decision["name"]
                     params = decision.get("params", {})
+                    if "@from" not in params or "@to" not in params:
+                        params = {**params, **_infer_time_range(query)}
                     data = self._structured_agent.query(template, params)
                     views = _extract_views_from_template(template)
                     return {
@@ -168,3 +173,72 @@ def _extract_views_from_template(template: str) -> list[str]:
         return sorted(names)
     except Exception:
         return []
+
+
+def _infer_time_range(query: str) -> dict:
+    """Infer a simple time window (@from/@to) from natural language.
+
+    Supports: last/this quarter, last/this month, last/this year.
+    Returns empty dict when no pattern is found.
+    """
+    q = query.lower()
+    today = date.today()
+
+    def _fmt(d: date) -> str:
+        return d.strftime("%Y-%m-%d")
+
+    # Year ranges
+    if "last year" in q:
+        start = date(today.year - 1, 1, 1)
+        end = date(today.year - 1, 12, 31)
+        return {"@from": _fmt(start), "@to": _fmt(end)}
+    if "this year" in q:
+        start = date(today.year, 1, 1)
+        end = date(today.year, 12, 31)
+        return {"@from": _fmt(start), "@to": _fmt(end)}
+
+    # Month ranges
+    if "last month" in q:
+        y = today.year
+        m = today.month - 1
+        if m == 0:
+            y -= 1
+            m = 12
+        start = date(y, m, 1)
+        # next month start minus 1 day
+        if m == 12:
+            end = date(y + 1, 1, 1) - timedelta(days=1)
+        else:
+            end = date(y, m + 1, 1) - timedelta(days=1)
+        return {"@from": _fmt(start), "@to": _fmt(end)}
+    if "this month" in q:
+        start = date(today.year, today.month, 1)
+        if today.month == 12:
+            end = date(today.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end = date(today.year, today.month + 1, 1) - timedelta(days=1)
+        return {"@from": _fmt(start), "@to": _fmt(end)}
+
+    # Quarter ranges
+    if "quarter" in q:
+        # compute current quarter
+        q_idx = (today.month - 1) // 3 + 1
+        if "last quarter" in q:
+            q_idx -= 1
+            y = today.year
+            if q_idx == 0:
+                q_idx = 4
+                y -= 1
+        else:  # "this quarter" or generic "quarter"
+            y = today.year
+        start_month = 3 * (q_idx - 1) + 1
+        start = date(y, start_month, 1)
+        # end is last day of the quarter
+        end_month = start_month + 2
+        if end_month == 12:
+            end = date(y + 1, 1, 1) - timedelta(days=1)
+        else:
+            end = date(y, end_month + 1, 1) - timedelta(days=1)
+        return {"@from": _fmt(start), "@to": _fmt(end)}
+
+    return {}

@@ -124,18 +124,13 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
                 headers={"Content-Type": "application/json"},
             )
 
-        # Surface user Graph token from EasyAuth (if enabled)
-        graph_token = (
-            req.headers.get("x-ms-token-aad-access-token")
-            if hasattr(req, "headers")
-            else None
+        payload, agent_name = handle_agent_query(
+            query,
+            req.route_params.get("agent", "domain"),
+            fmt,
+            dict(req.headers) if hasattr(req, "headers") else {},
+            dict(req.params) if hasattr(req, "params") else {},
         )
-        orchestrator = _build_orchestrator(graph_token)
-        agent = _resolve_chat_agent(req.route_params.get("agent", "domain"), orchestrator)
-
-        logger.info(f"[{cid}] Agent ask to {agent.__class__.__name__}")
-        # Prefer enriched result with evidence when available
-        result_payload = orchestrator.handle_with_citations(query)
 
         finished = datetime.now()
         log_function_execution(
@@ -143,29 +138,12 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             started,
             finished,
             True,
-            {"agent": agent.__class__.__name__, "correlation_id": cid},
+            {"agent": agent_name, "correlation_id": cid},
         )
-
-        # If structured SQL was used, try to provide a Power BI link
-        if result_payload.get("tool") == "fabric_sql":
-            # naive filter inference from query keywords
-            ql = query.lower()
-            filters = {}
-            if "carrier" in ql:
-                filters["vw_Variance/Carrier"] = _extract_value(query, "carrier") or ""
-            if "sku" in ql:
-                filters["vw_Variance/SKU"] = _extract_value(query, "sku") or ""
-            if "service level" in ql or "service" in ql:
-                val = _extract_value(query, "service level") or _extract_value(query, "service")
-                if val:
-                    filters["vw_Variance/ServiceLevel"] = val
-            pbi = build_pbi_deeplink({k: v for k, v in filters.items() if v})
-            if pbi:
-                result_payload["powerBiLink"] = pbi
 
         # If Teams requests a card, return an Adaptive Card payload
         if fmt and fmt.lower() == "card":
-            card = build_answer_card(result_payload)
+            card = build_answer_card(payload)
             return func.HttpResponse(
                 json.dumps(card),
                 status_code=200,
@@ -173,7 +151,7 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         return func.HttpResponse(
-            json.dumps({"agent": agent.__class__.__name__, **result_payload}),
+            json.dumps({"agent": agent_name, **payload}),
             status_code=200,
             headers={"Content-Type": "application/json"},
         )
@@ -198,3 +176,46 @@ def _extract_value(text: str, key: str) -> str | None:
     except Exception:
         # Avoid raising from helper; simply return None on parse failure
         return None
+
+
+def handle_agent_query(
+    query: str,
+    agent: str = "domain",
+    fmt: str | None = None,
+    headers: dict | None = None,
+    params: dict | None = None,
+) -> tuple[dict, str]:
+    """Core handler for agent queries used by HTTP function and tests.
+
+    Returns (payload, agent_name).
+    """
+    headers = headers or {}
+    params = params or {}
+
+    # Surface user Graph token from EasyAuth (if enabled)
+    graph_token = headers.get("x-ms-token-aad-access-token")
+    orchestrator = _build_orchestrator(graph_token)
+    agent_obj = _resolve_chat_agent(agent, orchestrator)
+    agent_name = agent_obj.__class__.__name__
+
+    # Prefer enriched result with evidence when available
+    result_payload = orchestrator.handle_with_citations(query)
+
+    # If structured SQL was used, try to provide a Power BI link
+    if result_payload.get("tool") == "fabric_sql":
+        # naive filter inference from query keywords
+        ql = query.lower()
+        filters = {}
+        if "carrier" in ql:
+            filters["vw_Variance/Carrier"] = _extract_value(query, "carrier") or ""
+        if "sku" in ql:
+            filters["vw_Variance/SKU"] = _extract_value(query, "sku") or ""
+        if "service level" in ql or "service" in ql:
+            val = _extract_value(query, "service level") or _extract_value(query, "service")
+            if val:
+                filters["vw_Variance/ServiceLevel"] = val
+        pbi = build_pbi_deeplink({k: v for k, v in filters.items() if v})
+        if pbi:
+            result_payload["powerBiLink"] = pbi
+
+    return result_payload, agent_name
