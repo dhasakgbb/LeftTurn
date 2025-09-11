@@ -11,7 +11,6 @@ import responses
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
-from src.services.fabric_data_agent import FabricDataAgent
 
 
 def test_orchestrator_routes_structured_queries() -> None:
@@ -109,6 +108,7 @@ def test_domain_agent_delegates_to_orchestrator() -> None:
         agent = DomainAgent(orchestrator)
 
         assert agent.handle("rate table") == [{"carrier": "Y"}]
+        assert agent.default_prompt == "General logistics assistant."
 
 
 def test_carrier_and_customer_agents_delegate() -> None:
@@ -129,7 +129,9 @@ def test_carrier_and_customer_agents_delegate() -> None:
         customer = CustomerOpsAgent(orchestrator)
 
         assert carrier.handle("sql rate") == [{"carrier": "Z"}]
+        assert carrier.default_prompt == "Carrier operations assistant."
         assert customer.handle("sql rate") == [{"carrier": "Z"}]
+        assert customer.default_prompt == "Customer operations assistant."
 
 
 def test_orchestrator_citations_structured() -> None:
@@ -139,8 +141,12 @@ def test_orchestrator_citations_structured() -> None:
             "https://fabric.test/sql",
             json={"rows": [{"carrier": "X", "overbilled": True}]},
         )
-        structured = StructuredDataAgent(FabricDataAgent("https://fabric.test", token="T"))
-        unstructured = UnstructuredDataAgent(SearchService("https://search.test", "contracts", api_key="K"))
+        structured = StructuredDataAgent(
+            FabricDataAgent("https://fabric.test", token="T")
+        )
+        unstructured = UnstructuredDataAgent(
+            SearchService("https://search.test", "contracts", api_key="K")
+        )
         orch = OrchestratorAgent(structured, unstructured)
 
         payload = orch.handle_with_citations("invoice variance for carrier X")
@@ -160,8 +166,12 @@ def test_orchestrator_citations_unstructured() -> None:
             ),
             json={"value": [{"content": "C7.4 minimum charge applies."}]},
         )
-        structured = StructuredDataAgent(FabricDataAgent("https://fabric.test", token="T"))
-        unstructured = UnstructuredDataAgent(SearchService("https://search.test", "contracts", api_key="K"))
+        structured = StructuredDataAgent(
+            FabricDataAgent("https://fabric.test", token="T")
+        )
+        unstructured = UnstructuredDataAgent(
+            SearchService("https://search.test", "contracts", api_key="K")
+        )
         orch = OrchestratorAgent(structured, unstructured)
 
         payload = orch.handle_with_citations("what does clause 7.4 say?")
@@ -188,4 +198,6 @@ def test_fabric_run_sql_params_sends_parameters() -> None:
             content_type="application/json",
         )
         agent = FabricDataAgent("https://fabric.test", token="T")
-        agent.run_sql_params("SELECT 1 WHERE carrier = @carrier", {"@carrier": "X"})
+        agent.run_sql_params(
+            "SELECT 1 WHERE carrier = @carrier", {"@carrier": "X"}
+        )
