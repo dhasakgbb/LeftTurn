@@ -82,6 +82,20 @@ cp .env.example .env
 func start
 ```
 
+### Kickoff Tasks
+
+- Seed Azure AI Search assets (requires `SEARCH_SERVICE` and `SEARCH_ADMIN_KEY`):
+
+```bash
+make seed-search
+```
+
+- Register curated Fabric SQL views (requires `FABRIC_ODBC_CONNECTION_STRING` and `pyodbc`):
+
+```bash
+make register-views
+```
+
 ## Deployment
 
 Deploy to Azure using the provided deployment script:
@@ -181,6 +195,14 @@ An OpenAPI definition for the agent gateway is available at `docs/openapi/agent-
 - Power BI
   - `PBI_WORKSPACE_ID` / `PBI_REPORT_ID`: enables `powerBiLink` in responses
   - `PBI_DATE_COLUMN`: report column used for date filtering in deeplinks (default `vw_Variance/ShipDate`)
+  - `AGENT_MAX_ROWS`: cap rows returned in agent results (optional)
+  - `AGENT_MAX_CITATIONS`: cap number of citations and unstructured passages (default 5)
+
+### Timeouts
+
+- `FABRIC_TIMEOUT`: seconds for Fabric HTTP calls (default 10)
+- `SEARCH_TIMEOUT`: seconds for Search calls (default 10)
+- `GRAPH_TIMEOUT`: seconds for Graph calls (default 10)
 
 ### New SQL Templates (curated views only)
 

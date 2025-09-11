@@ -1,6 +1,6 @@
 VENV=.venv
 
-.PHONY: setup lint test run-func clean
+.PHONY: setup lint test run-func seed-search register-views clean
 
 setup:
 	python3 -m venv $(VENV)
@@ -15,6 +15,11 @@ test:
 run-func:
 	func start
 
+seed-search:
+	infra/scripts/seed_search.sh
+
+register-views:
+	. $(VENV)/bin/activate && python tools/fabric_register_views.py fabric/sql/create_views_carrier.sql
+
 clean:
 	rm -rf $(VENV) .pytest_cache __pycache__ */__pycache__ dist build
-

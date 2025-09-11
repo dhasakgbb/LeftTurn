@@ -5,6 +5,7 @@ import os
 from typing import List
 
 import requests
+from src.utils.constants import USER_AGENT
 
 
 class GraphService:
@@ -37,10 +38,14 @@ class GraphService:
             headers = {
                 "Authorization": f"Bearer {self._token}",
                 "Content-Type": "application/json",
-                "User-Agent": "LeftTurn/1.0",
+                "User-Agent": USER_AGENT,
             }
             headers.update(self._extra_headers)
-            response = _post_with_retry(url, payload, headers)
+            try:
+                timeout = int(os.getenv("GRAPH_TIMEOUT", "10"))
+            except Exception:
+                timeout = 10
+            response = _post_with_retry(url, payload, headers, timeout=timeout)
             results: List[str] = []
             for req in response.json().get("value", []):
                 for container in req.get("hitsContainers", []):

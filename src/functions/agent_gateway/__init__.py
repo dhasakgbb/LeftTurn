@@ -155,6 +155,27 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             True,
             {"agent": agent_name, "correlation_id": cid},
         )
+        # Structured success log (non-fatal if it fails)
+        try:
+            import json as _json
+            latency_ms = int((finished - started).total_seconds() * 1000)
+            tool = payload.get("tool")
+            result = payload.get("result")
+            row_count = len(result) if isinstance(result, list) else (1 if result else 0)
+            logger.info(
+                _json.dumps(
+                    {
+                        "event": "agent.ask.success",
+                        "correlationId": cid,
+                        "agent": agent_name,
+                        "tool": tool,
+                        "latencyMs": latency_ms,
+                        "rowCount": row_count,
+                    }
+                )
+            )
+        except Exception:
+            pass
 
         # If Teams requests a card, return an Adaptive Card payload
         if fmt and fmt.lower() == "card":
@@ -175,6 +196,27 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
         log_function_execution(
             "agent_ask", started, finished, False, {"correlation_id": cid}
         )
+        # Structured error log (non-fatal if it fails)
+        try:
+            import json as _json
+            latency_ms = int((finished - started).total_seconds() * 1000)
+            try:
+                agent_param = req.route_params.get("agent", "domain")  # type: ignore[attr-defined]
+            except Exception:
+                agent_param = "domain"
+            logger.info(
+                _json.dumps(
+                    {
+                        "event": "agent.ask.error",
+                        "correlationId": cid,
+                        "agent": agent_param,
+                        "latencyMs": latency_ms,
+                        "error": str(e),
+                    }
+                )
+            )
+        except Exception:
+            pass
         logger.error(f"[{cid}] agent_ask error: {str(e)}")
         return func.HttpResponse(
             json.dumps({"error": "Internal server error", "message": str(e)}),

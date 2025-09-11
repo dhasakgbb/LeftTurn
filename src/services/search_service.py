@@ -5,6 +5,7 @@ import os
 from typing import List, Any
 
 import requests
+from src.utils.constants import USER_AGENT
 
 
 class SearchService:
@@ -35,9 +36,13 @@ class SearchService:
         headers = {
             "api-key": self._api_key,
             "Content-Type": "application/json",
-            "User-Agent": "LeftTurn/1.0",
+            "User-Agent": USER_AGENT,
         }
         headers.update(self._extra_headers)
+        try:
+            timeout = int(os.getenv("SEARCH_TIMEOUT", "10"))
+        except Exception:
+            timeout = 10
         body = {"search": query, "top": top}
         if semantic:
             # Basic semantic settings; requires a semantic configuration on the index
@@ -56,7 +61,7 @@ class SearchService:
                     "k": top,
                 }
 
-        response = _post_with_retry(url, body, headers)
+        response = _post_with_retry(url, body, headers, timeout=timeout)
         docs = response.json().get("value", [])
         if return_fields:
             # include basic metadata if present
@@ -83,7 +88,7 @@ class SearchService:
             if not (endpoint and key and dep):
                 return None
             url = f"{endpoint}/openai/deployments/{dep}/embeddings?api-version=2023-05-15"
-            headers = {"api-key": key, "Content-Type": "application/json", "User-Agent": "LT/1"}
+            headers = {"api-key": key, "Content-Type": "application/json", "User-Agent": USER_AGENT}
             payload = {"input": text}
             r = _rq.post(url, headers=headers, json=payload, timeout=10)
             r.raise_for_status()

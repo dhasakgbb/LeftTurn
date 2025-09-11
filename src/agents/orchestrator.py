@@ -153,15 +153,19 @@ class OrchestratorAgent:
             docs = None
         if docs is None:
             data = self._unstructured_agent.search(query)
+            import os as _os
+            _cap = int(_os.getenv("AGENT_MAX_CITATIONS", "5"))
             citations = [
                 {"type": "passage", "rank": i + 1, "excerpt": p[:200]}
-                for i, p in enumerate(data[:5])
+                for i, p in enumerate(data[:_cap])
             ]
-            return {"tool": "ai_search", "result": data, "citations": citations}
+            return {"tool": "ai_search", "result": data[:_cap], "citations": citations}
         # Extract citations with metadata when present
         citations = []
         result_texts = []
-        for i, d in enumerate(docs[:5]):
+        import os as _os
+        _cap = int(_os.getenv("AGENT_MAX_CITATIONS", "5"))
+        for i, d in enumerate(docs[:_cap]):
             text = d.get("text") if isinstance(d, dict) else str(d)
             result_texts.append(text)
             c = {"type": "passage", "rank": i + 1, "excerpt": text[:200]}

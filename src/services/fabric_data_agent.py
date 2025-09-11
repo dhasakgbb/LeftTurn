@@ -14,6 +14,7 @@ from typing import List, Any
 
 import requests
 from contextlib import contextmanager
+from src.utils.constants import USER_AGENT
 
 try:  # optional
     import pyodbc  # type: ignore
@@ -39,6 +40,10 @@ class FabricDataAgent:
         self._odbc_cstr = os.getenv("FABRIC_ODBC_CONNECTION_STRING", "")
         self._mode = (os.getenv("FABRIC_SQL_MODE", "http").lower() or "http")
         self._extra_headers = extra_headers or {}
+        try:
+            self._timeout = int(os.getenv("FABRIC_TIMEOUT", "10"))
+        except Exception:
+            self._timeout = 10
 
     def run_sql(self, sql: str) -> List[dict]:
         """Run raw SQL and return rows as a list of dicts."""
@@ -54,10 +59,10 @@ class FabricDataAgent:
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
-            "User-Agent": "LeftTurn/1.0",
+            "User-Agent": USER_AGENT,
         }
         headers.update(self._extra_headers)
-        response = _post_with_retry(url, {"query": sql}, headers)
+        response = _post_with_retry(url, {"query": sql}, headers, timeout=self._timeout)
         return response.json().get("rows", [])
 
     def run_sql_params(self, sql: str, parameters: dict) -> List[dict]:
@@ -85,11 +90,11 @@ class FabricDataAgent:
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
-            "User-Agent": "LeftTurn/1.0",
+            "User-Agent": USER_AGENT,
         }
         headers.update(self._extra_headers)
         payload = {"query": sql, "parameters": [{"name": k, "value": v} for k, v in parameters.items()]}
-        response = _post_with_retry(url, payload, headers)
+        response = _post_with_retry(url, payload, headers, timeout=self._timeout)
         return response.json().get("rows", [])
 
     @contextmanager
