@@ -139,6 +139,26 @@ def truncate_string(text: str, max_length: int = 100, suffix: str = "...") -> st
     
     return text[:max_length - len(suffix)] + suffix
 
+def extract_param_value(text: str, key: str) -> str | None:
+    """Extract a value for a given key from free text.
+
+    Supports forms like:
+    - "key: value"
+    - "key=value"
+    - "key value"
+    Value may be quoted or unquoted; hyphens and dots are allowed.
+    Returns None when not found.
+    """
+    import re
+    try:
+        pattern = rf"{re.escape(key)}[:=\s]+(?:(['\"])(.*?)\1|([\w\-.]+))"
+        m = re.search(pattern, text, re.IGNORECASE)
+        if not m:
+            return None
+        return (m.group(2) or m.group(3))
+    except Exception:
+        return None
+
 def parse_azure_connection_string(connection_string: str) -> Dict[str, str]:
     """
     Parse Azure connection string into components

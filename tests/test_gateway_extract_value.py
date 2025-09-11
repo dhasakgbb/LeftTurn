@@ -1,4 +1,4 @@
-from src.functions.agent_gateway import _extract_value
+from src.utils.helpers import extract_param_value as _extract_value
 
 
 def test_extract_value_variants():

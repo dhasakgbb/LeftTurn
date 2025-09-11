@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 from src.agents import router
 from src.services.sql_templates import TEMPLATES
+from src.utils.helpers import extract_param_value
 
 
 class OrchestratorAgent:
@@ -38,6 +39,18 @@ class OrchestratorAgent:
                     params = decision.get("params", {})
                     if "@from" not in params or "@to" not in params:
                         params = {**params, **_infer_time_range(query)}
+                    carrier = extract_param_value(query, "carrier")
+                    sku = extract_param_value(query, "sku")
+                    service = (
+                        extract_param_value(query, "service level")
+                        or extract_param_value(query, "service")
+                    )
+                    if carrier:
+                        params["@carrier"] = carrier
+                    if sku:
+                        params["@sku"] = sku
+                    if service:
+                        params["@service"] = service
                     return self._structured_agent.query(name, params)
                 if decision["tool"] == "graph" and self._graph_service:
                     return self._graph_service.get_resource(query)
@@ -84,6 +97,18 @@ class OrchestratorAgent:
                     params = decision.get("params", {})
                     if "@from" not in params or "@to" not in params:
                         params = {**params, **_infer_time_range(query)}
+                    carrier = extract_param_value(query, "carrier")
+                    sku = extract_param_value(query, "sku")
+                    service = (
+                        extract_param_value(query, "service level")
+                        or extract_param_value(query, "service")
+                    )
+                    if carrier:
+                        params["@carrier"] = carrier
+                    if sku:
+                        params["@sku"] = sku
+                    if service:
+                        params["@service"] = service
                     data = self._structured_agent.query(template, params)
                     views = _extract_views_from_template(template)
                     return {

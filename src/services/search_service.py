@@ -11,7 +11,12 @@ class SearchService:
     """Query an Azure Cognitive Search index."""
 
     def __init__(
-        self, endpoint: str, index: str, api_key: str | None = None, api_version: str | None = None
+        self,
+        endpoint: str,
+        index: str,
+        api_key: str | None = None,
+        api_version: str | None = None,
+        extra_headers: dict | None = None,
     ) -> None:
         self._endpoint = endpoint.rstrip("/")
         self._index = index
@@ -19,6 +24,7 @@ class SearchService:
         self._api_version = api_version or os.getenv("SEARCH_API_VERSION", "2021-04-30-Preview")
         self._hybrid = os.getenv("SEARCH_HYBRID", "false").lower() in {"1", "true", "yes"}
         self._vector_field = os.getenv("SEARCH_VECTOR_FIELD", "pageEmbedding")
+        self._extra_headers = extra_headers or {}
 
     def search(
         self, query: str, top: int = 5, semantic: bool = False, return_fields: bool = False
@@ -31,6 +37,7 @@ class SearchService:
             "Content-Type": "application/json",
             "User-Agent": "LeftTurn/1.0",
         }
+        headers.update(self._extra_headers)
         body = {"search": query, "top": top}
         if semantic:
             # Basic semantic settings; requires a semantic configuration on the index
@@ -45,13 +52,7 @@ class SearchService:
             if embedding:
                 body["vector"] = {"value": embedding, "fields": self._vector_field, "k": top}
 
-        response = requests.post(
-            url,
-            headers=headers,
-            json=body,
-            timeout=10,
-        )
-        response.raise_for_status()
+        response = _post_with_retry(url, body, headers)
         docs = response.json().get("value", [])
         if return_fields:
             # include basic metadata if present
@@ -86,3 +87,29 @@ class SearchService:
             return data["data"][0]["embedding"]
         except Exception:
             return None
+
+
+def _post_with_retry(url: str, payload: dict, headers: dict, timeout: int = 10):
+    import random
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
+            if resp.status_code in {429, 500, 502, 503, 504} and attempt < 2:
+                delay = 0.2 * (2 ** attempt) + random.random() * 0.05
+                try:
+                    import time as _t
+                    _t.sleep(delay)
+                except Exception:
+                    pass
+                continue
+            resp.raise_for_status()
+            return resp
+        except Exception:
+            if attempt == 2:
+                raise
+            try:
+                import time as _t
+                _t.sleep(0.2 * (2 ** attempt))
+            except Exception:
+                pass
+    return requests.post(url, json=payload, headers=headers, timeout=timeout)

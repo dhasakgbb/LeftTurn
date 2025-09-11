@@ -16,7 +16,7 @@ from src.agents import (
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
-from src.utils.helpers import get_correlation_id, log_function_execution
+from src.utils.helpers import get_correlation_id, log_function_execution, extract_param_value
 from src.services.obo import exchange_obo_for_graph
 from src.utils.pbi import build_pbi_deeplink
 from src.utils.cards import build_answer_card
@@ -26,7 +26,10 @@ logger = logging.getLogger(__name__)
 agent_gateway_bp = func.Blueprint()
 
 
-def _build_orchestrator(user_graph_token: str | None = None) -> OrchestratorAgent:
+def _build_orchestrator(
+    user_graph_token: str | None = None,
+    correlation_id: str | None = None,
+) -> OrchestratorAgent:
     """Create an orchestrator wired to Fabric, Search, and Graph services.
 
     Configuration is taken from environment variables so this function stays
@@ -35,14 +38,21 @@ def _build_orchestrator(user_graph_token: str | None = None) -> OrchestratorAgen
     # Structured: Fabric
     fabric_endpoint = os.getenv("FABRIC_ENDPOINT", "").strip()
     fabric_token = os.getenv("FABRIC_TOKEN", "").strip()
-    fabric = FabricDataAgent(fabric_endpoint, token=fabric_token) if fabric_endpoint else None
+    extra = {"X-Correlation-ID": correlation_id} if correlation_id else {}
+    fabric = (
+        FabricDataAgent(fabric_endpoint, token=fabric_token, extra_headers=extra)
+        if fabric_endpoint
+        else None
+    )
 
     # Unstructured: Azure AI Search
     search_endpoint = os.getenv("SEARCH_ENDPOINT", "").strip()
     search_index = os.getenv("SEARCH_INDEX", "").strip()
     search_key = os.getenv("SEARCH_API_KEY", "").strip()
     search = (
-        SearchService(search_endpoint, search_index, api_key=search_key)
+        SearchService(
+            search_endpoint, search_index, api_key=search_key, extra_headers=extra
+        )
         if search_endpoint and search_index
         else None
     )
@@ -60,7 +70,11 @@ def _build_orchestrator(user_graph_token: str | None = None) -> OrchestratorAgen
     except Exception:
         pass
     graph_endpoint = os.getenv("GRAPH_ENDPOINT", "https://graph.microsoft.com/v1.0")
-    graph = GraphService(token=graph_token, endpoint=graph_endpoint) if graph_token else None
+    graph = (
+        GraphService(token=graph_token, endpoint=graph_endpoint, extra_headers=extra)
+        if graph_token
+        else None
+    )
 
     structured = StructuredDataAgent(fabric) if fabric else None
     unstructured = UnstructuredDataAgent(search) if search else None
@@ -130,6 +144,7 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             fmt,
             dict(req.headers) if hasattr(req, "headers") else {},
             dict(req.params) if hasattr(req, "params") else {},
+            correlation_id=cid,
         )
 
         finished = datetime.now()
@@ -169,18 +184,8 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
 
 
 def _extract_value(text: str, key: str) -> str | None:
-    try:
-        import re
-        # Match key: value where value can be quoted or unquoted token(s)
-        # Examples: carrier: Acme, service level="2 Day", sku 812
-        pattern = rf"{key}[:=\s]+(?:(['\"])(.*?)\1|([\w\-.]+))"
-        m = re.search(pattern, text, re.IGNORECASE)
-        if not m:
-            return None
-        return (m.group(2) or m.group(3))
-    except Exception:
-        # Avoid raising from helper; simply return None on parse failure
-        return None
+    # Backward‑compatible wrapper; delegate to utils.helpers
+    return extract_param_value(text, key)
 
 
 def handle_agent_query(
@@ -189,6 +194,7 @@ def handle_agent_query(
     fmt: str | None = None,
     headers: dict | None = None,
     params: dict | None = None,
+    correlation_id: str | None = None,
 ) -> tuple[dict, str]:
     """Core handler for agent queries used by HTTP function and tests.
 
@@ -199,7 +205,7 @@ def handle_agent_query(
 
     # Surface user Graph token from EasyAuth (if enabled)
     graph_token = headers.get("x-ms-token-aad-access-token")
-    orchestrator = _build_orchestrator(graph_token)
+    orchestrator = _build_orchestrator(graph_token, correlation_id)
     agent_obj = _resolve_chat_agent(agent, orchestrator)
     agent_name = agent_obj.__class__.__name__
 
@@ -212,11 +218,14 @@ def handle_agent_query(
         ql = query.lower()
         filters = {}
         if "carrier" in ql:
-            filters["vw_Variance/Carrier"] = _extract_value(query, "carrier") or ""
+            filters["vw_Variance/Carrier"] = extract_param_value(query, "carrier") or ""
         if "sku" in ql:
-            filters["vw_Variance/SKU"] = _extract_value(query, "sku") or ""
+            filters["vw_Variance/SKU"] = extract_param_value(query, "sku") or ""
         if "service level" in ql or "service" in ql:
-            val = _extract_value(query, "service level") or _extract_value(query, "service")
+            val = (
+                extract_param_value(query, "service level")
+                or extract_param_value(query, "service")
+            )
             if val:
                 filters["vw_Variance/ServiceLevel"] = val
         # Include date range expressions from SQL parameters when available
@@ -232,7 +241,9 @@ def handle_agent_query(
                 exprs.append(f"{date_col} le '{dto}'")
         except Exception:
             pass
-        pbi = build_pbi_deeplink({k: v for k, v in filters.items() if v}, expressions=exprs or None)
+        pbi = build_pbi_deeplink(
+            {k: v for k, v in filters.items() if v}, expressions=exprs or None
+        )
         if pbi:
             result_payload["powerBiLink"] = pbi
 

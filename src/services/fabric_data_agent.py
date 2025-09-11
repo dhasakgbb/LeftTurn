@@ -33,11 +33,12 @@ class FabricDataAgent:
         environment variable is used.
     """
 
-    def __init__(self, endpoint: str, token: str | None = None) -> None:
+    def __init__(self, endpoint: str, token: str | None = None, extra_headers: dict | None = None) -> None:
         self._endpoint = endpoint.rstrip("/")
         self._token = token or os.getenv("FABRIC_TOKEN", "")
         self._odbc_cstr = os.getenv("FABRIC_ODBC_CONNECTION_STRING", "")
         self._mode = (os.getenv("FABRIC_SQL_MODE", "http").lower() or "http")
+        self._extra_headers = extra_headers or {}
 
     def run_sql(self, sql: str) -> List[dict]:
         """Run raw SQL and return rows as a list of dicts."""
@@ -55,8 +56,8 @@ class FabricDataAgent:
             "Content-Type": "application/json",
             "User-Agent": "LeftTurn/1.0",
         }
-        response = requests.post(url, json={"query": sql}, headers=headers, timeout=10)
-        response.raise_for_status()
+        headers.update(self._extra_headers)
+        response = _post_with_retry(url, {"query": sql}, headers)
         return response.json().get("rows", [])
 
     def run_sql_params(self, sql: str, parameters: dict) -> List[dict]:
@@ -86,9 +87,9 @@ class FabricDataAgent:
             "Content-Type": "application/json",
             "User-Agent": "LeftTurn/1.0",
         }
+        headers.update(self._extra_headers)
         payload = {"query": sql, "parameters": [{"name": k, "value": v} for k, v in parameters.items()]}
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        response.raise_for_status()
+        response = _post_with_retry(url, payload, headers)
         return response.json().get("rows", [])
 
     @contextmanager
@@ -114,6 +115,38 @@ def _strip_param_names(sql: str) -> str:  # pragma: no cover
     # Replace @param with ? for ODBC parameter binding
     import re
     return re.sub(r"@\w+", "?", sql)
+
+
+def _post_with_retry(url: str, payload: dict, headers: dict, timeout: int = 10):
+    """POST with small retry on transient errors (429/5xx/connection).
+
+    Keeps behavior simple and bounded for stability.
+    """
+    import random
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
+            # Retry on throttling or server errors
+            if resp.status_code in {429, 500, 502, 503, 504} and attempt < 2:
+                delay = 0.2 * (2 ** attempt) + random.random() * 0.05
+                try:
+                    import time as _t
+                    _t.sleep(delay)
+                except Exception:
+                    pass
+                continue
+            resp.raise_for_status()
+            return resp
+        except Exception:
+            if attempt == 2:
+                raise
+            try:
+                import time as _t
+                _t.sleep(0.2 * (2 ** attempt))
+            except Exception:
+                pass
+    # Should not reach
+    return requests.post(url, json=payload, headers=headers, timeout=timeout)
 
 
 def _ensure_read_only(sql: str) -> None:

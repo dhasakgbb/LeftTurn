@@ -44,3 +44,20 @@ def health_check(req: func.HttpRequest) -> func.HttpResponse:
         status_code=200,
         headers={"Content-Type": "application/json"}
     )
+
+
+@app.function_name(name="ready")
+@app.route(route="ready", methods=["GET"])
+def ready_check(req: func.HttpRequest) -> func.HttpResponse:
+    """Always return detailed readiness (alias for health?detail=true)."""
+    import json as _json
+    payload = {
+        "status": "healthy",
+        "service": "LeftTurn Agents",
+        "config": validate_stack_readiness(),
+    }
+    return func.HttpResponse(
+        body=_json.dumps(payload),
+        status_code=200,
+        headers={"Content-Type": "application/json"}
+    )

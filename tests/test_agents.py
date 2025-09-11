@@ -187,10 +187,13 @@ def test_orchestrator_citations_structured_via_router() -> None:
         )
         orch = OrchestratorAgent(structured, unstructured)
 
-        payload = orch.handle_with_citations("How much were we overbilled last quarter?")
+        payload = orch.handle_with_citations("How much were we overbilled last quarter for carrier: X sku 812?")
 
         assert payload["tool"] == "fabric_sql"
-        assert payload["citations"][0]["template"] == "variance_summary"
+        c0 = payload["citations"][0]
+        assert c0["template"] == "variance_summary"
+        assert c0["parameters"].get("@carrier") == "X"
+        assert c0["parameters"].get("@sku") == "812"
 
 
 def test_orchestrator_citations_views_extracted() -> None:
