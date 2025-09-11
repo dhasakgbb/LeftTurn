@@ -17,6 +17,7 @@ from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
 from src.utils.helpers import get_correlation_id, log_function_execution
+from src.services.obo import exchange_obo_for_graph
 from src.utils.pbi import build_pbi_deeplink
 from src.utils.cards import build_answer_card
 
@@ -48,7 +49,16 @@ def _build_orchestrator(user_graph_token: str | None = None) -> OrchestratorAgen
 
     # Microsoft Graph
     # Prefer a per-request delegated token from EasyAuth when available
-    graph_token = (user_graph_token or os.getenv("GRAPH_TOKEN", "").strip())
+    # Optionally perform OBO to get a Graph token for the user
+    graph_token = user_graph_token or os.getenv("GRAPH_TOKEN", "").strip()
+    try:
+        obo_pref = os.getenv("OBO_ENABLED", "false").lower() in {"1", "true", "yes"}
+        if obo_pref and user_graph_token:
+            obo_token = exchange_obo_for_graph(user_graph_token)
+            if obo_token:
+                graph_token = obo_token
+    except Exception:
+        pass
     graph_endpoint = os.getenv("GRAPH_ENDPOINT", "https://graph.microsoft.com/v1.0")
     graph = GraphService(token=graph_token, endpoint=graph_endpoint) if graph_token else None
 
