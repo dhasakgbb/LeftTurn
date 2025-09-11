@@ -10,3 +10,6 @@ pydantic==2.5.0
 requests==2.31.0
 pytest==7.4.4
 pytest-asyncio==0.23.2
+flake8==6.1.0
+responses==0.25.0
+
