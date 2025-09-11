@@ -156,21 +156,20 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             status_code=200,
             headers={"Content-Type": "application/json"},
         )
-
-
-def _extract_value(text: str, key: str) -> str | None:
-    try:
-        import re
-        m = re.search(rf"{key}[:=\s]+([\w\-\.]+)", text, re.IGNORECASE)
-        return m.group(1) if m else None
-    except Exception:
-        return None
     except Exception as e:
         finished = datetime.now()
-        log_function_execution("agent_ask", started, finished, False, {"correlation_id": cid})
+        log_function_execution(
+            "agent_ask", started, finished, False, {"correlation_id": cid}
+        )
         logger.error(f"[{cid}] agent_ask error: {str(e)}")
         return func.HttpResponse(
             json.dumps({"error": "Internal server error", "message": str(e)}),
             status_code=500,
             headers={"Content-Type": "application/json"},
         )
+
+
+def _extract_value(text: str, key: str) -> str | None:
+    import re
+    m = re.search(rf"{key}[:=\s]+([\w\-\.]+)", text, re.IGNORECASE)
+    return m.group(1) if m else None

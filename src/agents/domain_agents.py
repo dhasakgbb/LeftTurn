@@ -30,15 +30,12 @@ class CarrierAgent(_BaseAgent):
 
 
 class CustomerOpsAgent(_BaseAgent):
-<<<<<<< Updated upstream
     """Agent focused on customer operations and support topics."""
 
     @property
     def default_prompt(self) -> str:
         """Return the system prompt used for customer ops questions."""
         return "Customer operations assistant."
-=======
-    pass
 
 
 class ClaimsAgent(_BaseAgent):
@@ -48,14 +45,9 @@ class ClaimsAgent(_BaseAgent):
     front-end (Teams or Copilot) can present specialized intents like
     "open dispute packet" or "explain variance".
     """
-    pass
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+
+    @property
+    def default_prompt(self) -> str:
+        """Return the system prompt used for claims questions."""
+        return "Claims assistant."
+
