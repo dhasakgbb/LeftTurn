@@ -71,12 +71,34 @@ class OrchestratorAgent:
                     {"type": "graph", "query": query, "count": len(data)}
                 ],
             }
-        data = self._unstructured_agent.search(query)
-        citations = [
-            {"type": "passage", "rank": i + 1, "excerpt": p[:200]}
-            for i, p in enumerate(data[:5])
-        ]
-        return {"tool": "ai_search", "result": data, "citations": citations}
+        # Prefer metadata-aware search when available
+        try:
+            docs = self._unstructured_agent.search_with_meta(query)
+        except AttributeError:
+            docs = None
+        if docs is None:
+            data = self._unstructured_agent.search(query)
+            citations = [
+                {"type": "passage", "rank": i + 1, "excerpt": p[:200]}
+                for i, p in enumerate(data[:5])
+            ]
+            return {"tool": "ai_search", "result": data, "citations": citations}
+        # Extract citations with metadata when present
+        citations = []
+        result_texts = []
+        for i, d in enumerate(docs[:5]):
+            text = d.get("text") if isinstance(d, dict) else str(d)
+            result_texts.append(text)
+            c = {"type": "passage", "rank": i + 1, "excerpt": text[:200]}
+            if isinstance(d, dict):
+                if d.get("file"):
+                    c["file"] = d.get("file")
+                if d.get("page") is not None:
+                    c["page"] = d.get("page")
+                if d.get("clauseId"):
+                    c["clauseId"] = d.get("clauseId")
+            citations.append(c)
+        return {"tool": "ai_search", "result": result_texts, "citations": citations}
 
     @staticmethod
     def _needs_graph(query: str) -> bool:

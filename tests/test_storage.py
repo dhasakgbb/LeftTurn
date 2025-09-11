@@ -1,11 +1,7 @@
 from datetime import datetime, timezone, timedelta
 
 from src.services.storage_service import StorageService
-from src.models.validation_models import (
-    EmailNotification,
-    ValidationResult,
-    ValidationStatus,
-)
+from src.models.validation_models import EmailNotification, ValidationStatus
 
 
 class _FakeContainer:
@@ -124,4 +120,3 @@ def test_update_validation_status(monkeypatch):
     ok = svc.update_validation_status("v1", ValidationStatus.CORRECTED)
     assert ok is True
     assert vals.items["v1"]["status"] == "corrected"
-

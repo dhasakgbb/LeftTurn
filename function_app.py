@@ -22,6 +22,7 @@ app.register_functions(teams_relay_bp)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 @app.function_name(name="health")
 @app.route(route="health", methods=["GET"])
 def health_check(req: func.HttpRequest) -> func.HttpResponse:

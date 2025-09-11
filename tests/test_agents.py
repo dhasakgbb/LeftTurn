@@ -13,6 +13,7 @@ import pytest
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
+from src.services.sql_templates import TEMPLATES
 
 
 def test_orchestrator_routes_structured_queries() -> None:
@@ -163,6 +164,42 @@ def test_orchestrator_citations_unstructured() -> None:
         assert "excerpt" in payload["citations"][0]
 
 
+def test_orchestrator_citations_unstructured_with_metadata() -> None:
+    with responses.RequestsMock() as rsps:
+        rsps.add(
+            "POST",
+            (
+                "https://search.test/indexes/contracts/docs/search"
+                "?api-version=2021-04-30-Preview"
+            ),
+            json={
+                "value": [
+                    {
+                        "file": "carrierX.pdf",
+                        "page": 7,
+                        "clauseId": "C7.4",
+                        "content": "Clause 7.4: minimum charge applies.",
+                    }
+                ]
+            },
+        )
+        structured = StructuredDataAgent(
+            FabricDataAgent("https://fabric.test", token="T")
+        )
+        # Search service returns fields; orchestrator should surface them in citations
+        unstructured = UnstructuredDataAgent(
+            SearchService("https://search.test", "contracts", api_key="K")
+        )
+        orch = OrchestratorAgent(structured, unstructured)
+
+        payload = orch.handle_with_citations("what does clause 7.4 say?")
+
+        c0 = payload["citations"][0]
+        assert c0.get("file") == "carrierX.pdf"
+        assert c0.get("page") == 7
+        assert c0.get("clauseId") == "C7.4"
+
+
 def test_structured_agent_rejects_unknown_template() -> None:
     agent = StructuredDataAgent(
         FabricDataAgent("https://fabric.test", token="T")
@@ -191,3 +228,49 @@ def test_fabric_run_sql_params_sends_parameters() -> None:
         agent.run_sql_params(
             "SELECT 1 WHERE carrier = @carrier", {"@carrier": "X"}
         )
+
+
+def test_sql_templates_registered() -> None:
+    # Ensure expected templates are present
+    for key in [
+        "variance_summary",
+        "variance_by_service",
+        "on_time_rate",
+        "fuel_surcharge_series",
+    ]:
+        assert key in TEMPLATES and isinstance(TEMPLATES[key], str)
+
+
+def test_structured_agent_runs_all_templates() -> None:
+    import re
+
+    with responses.RequestsMock() as rsps:
+        def _cb(request):
+            body = request.body
+            import json as _json
+            data = _json.loads(body)
+            sent_params = {p["name"] for p in data.get("parameters", [])}
+            sql = data.get("query", "")
+            expected = set(re.findall(r"@[A-Za-z_]+", sql))
+            # Only require that params referenced in SQL are provided
+            assert expected.issubset(sent_params)
+            return (200, {}, _json.dumps({"rows": []}))
+
+        rsps.add_callback(
+            "POST",
+            "https://fabric.test/sql",
+            callback=_cb,
+            content_type="application/json",
+        )
+
+        fabric = FabricDataAgent("https://fabric.test", token="T")
+        structured = StructuredDataAgent(fabric)
+
+        params = {"@from": "2024-01-01", "@to": "2024-01-31", "@carrier": "X"}
+        for name in [
+            "variance_summary",
+            "variance_by_service",
+            "on_time_rate",
+            "fuel_surcharge_series",
+        ]:
+            structured.query(name, params)

@@ -17,6 +17,7 @@ from src.models.validation_models import (
 
 logger = logging.getLogger(__name__)
 
+
 class StorageService:
     """Service for managing storage and tracking using Azure Storage and Cosmos DB"""
     

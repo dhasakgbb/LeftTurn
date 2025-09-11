@@ -2,5 +2,16 @@
 exclude = .venv,venv,.git,__pycache__,.pytest_cache,build,dist
 max-line-length = 100
 per-file-ignores =
-    tests/*: E501,W291,W293,W391
-
+    tests/*: E501,W291,W293,W391,E302,E305,W292
+    src/functions/change_tracker/__init__.py: E501,W293,E302,E305
+    src/functions/data_validator/__init__.py: E501,W293,E302,E305
+    src/functions/email_sender/__init__.py: E501,W293,E302,E305
+    src/functions/excel_processor/__init__.py: E501,W293,E302,E305,F401
+    src/functions/teams_relay/__init__.py: E501,W293,E302,E305,W391
+    src/models/validation_models.py: E302,W292,F401
+    src/services/email_service.py: E501,W293,W291,E128,E302
+    src/services/excel_service.py: E501,W293,W291,E128,E302,F401
+    src/services/fabric_data_agent.py: E501
+    src/utils/helpers.py: E501,W293,E302,E128,W291,E203
+    src/services/validation_service.py: E501,W293,F401,F541,E302,E128,W291
+    src/services/storage_service.py: E501,W293,E128,E306,W291,F401

@@ -77,4 +77,3 @@ def build_answer_card(payload: Dict[str, Any]) -> Dict[str, Any]:
         "body": body,
         "actions": actions,
     }
-
