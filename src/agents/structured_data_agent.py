@@ -19,4 +19,26 @@ class StructuredDataAgent:
         sql = self._templates.get(template)
         if sql is None:
             raise ValueError(f"Unknown SQL template: {template}")
+        _ensure_view_only(sql)
         return self._fabric_agent.run_sql_params(sql, parameters or {})
+
+
+def _ensure_view_only(sql: str) -> None:
+    """Block direct table access; allow curated views.
+
+    Anti-goal is bypassing curated views. We block obvious table/schema
+    references (dbo., sys., information_schema) but allow view names such as
+    vw_* regardless of schema qualification choice in environments.
+    """
+    import re
+    names: list[str] = []
+    for m in re.finditer(r"\bFROM\s+([\w\.]+)", sql, re.IGNORECASE):
+        names.append(m.group(1))
+    for m in re.finditer(r"\bJOIN\s+([\w\.]+)", sql, re.IGNORECASE):
+        names.append(m.group(1))
+    for n in names:
+        nl = n.lower()
+        if nl.startswith("vw_") or ".vw_" in nl:
+            continue
+        if nl.startswith("dbo.") or nl.startswith("sys.") or nl.startswith("information_schema."):
+            raise PermissionError("Queries must reference curated views; direct tables are blocked")

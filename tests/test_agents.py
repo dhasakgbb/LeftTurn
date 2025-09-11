@@ -36,6 +36,25 @@ def test_orchestrator_routes_structured_queries() -> None:
         assert result == [{"carrier": "X", "overbilled": True}]
 
 
+def test_orchestrator_routes_structured_via_router() -> None:
+    with responses.RequestsMock() as rsps:
+        rsps.add(
+            "POST",
+            "https://fabric.test/sql",
+            json={"rows": [{"carrier": "X", "overbilled": True}]},
+        )
+        fabric = FabricDataAgent("https://fabric.test", token="T")
+        structured = StructuredDataAgent(fabric)
+        unstructured = UnstructuredDataAgent(
+            SearchService("https://search.test", "contracts", api_key="K")
+        )
+        orchestrator = OrchestratorAgent(structured, unstructured)
+
+        result = orchestrator.handle("How much were we overbilled last quarter?")
+
+        assert result == [{"carrier": "X", "overbilled": True}]
+
+
 def test_orchestrator_routes_unstructured_queries() -> None:
     with responses.RequestsMock() as rsps:
         rsps.add(
@@ -142,6 +161,27 @@ def test_orchestrator_citations_structured() -> None:
         assert payload["citations"][0]["template"] == "variance_summary"
         # sampleRows should include up to first 3 rows
         assert isinstance(payload.get("sampleRows"), list) and len(payload["sampleRows"]) >= 1
+
+
+def test_orchestrator_citations_structured_via_router() -> None:
+    with responses.RequestsMock() as rsps:
+        rsps.add(
+            "POST",
+            "https://fabric.test/sql",
+            json={"rows": [{"carrier": "X", "overbilled": True}]},
+        )
+        structured = StructuredDataAgent(
+            FabricDataAgent("https://fabric.test", token="T")
+        )
+        unstructured = UnstructuredDataAgent(
+            SearchService("https://search.test", "contracts", api_key="K")
+        )
+        orch = OrchestratorAgent(structured, unstructured)
+
+        payload = orch.handle_with_citations("How much were we overbilled last quarter?")
+
+        assert payload["tool"] == "fabric_sql"
+        assert payload["citations"][0]["template"] == "variance_summary"
 
 
 def test_orchestrator_citations_views_extracted() -> None:

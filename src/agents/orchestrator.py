@@ -32,6 +32,10 @@ class OrchestratorAgent:
             # Prefer router classification for string queries
             try:
                 decision = router.classify(query)
+                if decision["tool"] == "sql":
+                    name = decision["name"]
+                    params = decision.get("params", {})
+                    return self._structured_agent.query(name, params)
                 if decision["tool"] == "graph" and self._graph_service:
                     return self._graph_service.get_resource(query)
             except Exception:
@@ -72,6 +76,25 @@ class OrchestratorAgent:
         if isinstance(query, str):
             try:
                 decision = router.classify(query)
+                if decision["tool"] == "sql":
+                    template = decision["name"]
+                    params = decision.get("params", {})
+                    data = self._structured_agent.query(template, params)
+                    views = _extract_views_from_template(template)
+                    return {
+                        "tool": "fabric_sql",
+                        "result": data,
+                        "sampleRows": list(data[:3]) if isinstance(data, list) else [],
+                        "citations": [
+                            {
+                                "type": "table",
+                                "source": "fabric",
+                                "template": template,
+                                "parameters": params,
+                                **({"views": views} if views else {}),
+                            }
+                        ],
+                    }
                 if decision["tool"] == "graph" and self._graph_service:
                     data = self._graph_service.get_resource(query)
                     return {
