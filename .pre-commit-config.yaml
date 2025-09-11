@@ -1,0 +1,22 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(src/agents/router.py|src/services/sql_templates.py|src/services/http_client.py|tools/repo_sanity.py|tests/test_router.py)$
+      - id: ruff-format
+        files: ^(src/agents/router.py|src/services/sql_templates.py|src/services/http_client.py|tools/repo_sanity.py|tests/test_router.py)$
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.17.0
+    hooks:
+      - id: pyupgrade
+        args: [--py311-plus]
+        files: ^(src/agents/router.py|src/services/sql_templates.py|src/services/http_client.py|tools/repo_sanity.py|tests/test_router.py)$
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        additional_dependencies: [pydantic==2.7.3]
+        files: ^(src/agents/router.py|src/services/sql_templates.py|src/services/http_client.py|tools/repo_sanity.py|tests/test_router.py)$
+
