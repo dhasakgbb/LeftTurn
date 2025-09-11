@@ -1,5 +1,3 @@
-import os
-
 import responses
 
 from src.services.fabric_data_agent import FabricDataAgent
@@ -55,4 +53,3 @@ def test_fabric_http_run_sql_params(monkeypatch):
         agent = FabricDataAgent("https://fabric.test", token="T")
         out = agent.run_sql_params("SELECT 1 WHERE x=@x", {"@x": 1})
         assert out == [{"k": 1}]
-

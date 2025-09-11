@@ -41,6 +41,7 @@ class FabricDataAgent:
 
     def run_sql(self, sql: str) -> List[dict]:
         """Run raw SQL and return rows as a list of dicts."""
+        _ensure_read_only(sql)
         if self._mode == "odbc" and self._odbc_cstr and pyodbc is not None:
             with self._conn() as conn:
                 cur = conn.cursor()
@@ -65,6 +66,7 @@ class FabricDataAgent:
         interpolation. Example: `{"@carrier": "X"}` used with
         `WHERE carrier = @carrier`.
         """
+        _ensure_read_only(sql)
         if self._mode == "odbc" and self._odbc_cstr and pyodbc is not None:
             with self._conn() as conn:
                 cur = conn.cursor()
@@ -110,3 +112,28 @@ def _strip_param_names(sql: str) -> str:  # pragma: no cover
     # Replace @param with ? for ODBC parameter binding
     import re
     return re.sub(r"@\w+", "?", sql)
+
+
+def _ensure_read_only(sql: str) -> None:
+    """Guardrail: allow only SELECT/CTE queries in production paths.
+
+    This prevents accidental writes when running against production Fabric.
+    """
+    import re
+    s = sql.lstrip()
+    # strip leading comments
+    while True:
+        s = s.lstrip()
+        if s.startswith("/*"):
+            end = s.find("*/")
+            s = s[end + 2:] if end != -1 else ""
+            continue
+        if s.startswith("--"):
+            nl = s.find("\n")
+            s = s[nl + 1:] if nl != -1 else ""
+            continue
+        break
+    m = re.match(r"([a-zA-Z]+)", s or "")
+    kw = (m.group(1).lower() if m else "")
+    if kw not in {"select", "with"}:
+        raise PermissionError("Only read-only SELECT queries are permitted")

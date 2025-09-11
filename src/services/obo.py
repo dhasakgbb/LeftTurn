@@ -46,4 +46,3 @@ def exchange_obo_for_graph(user_access_token: str) -> Optional[str]:
     except Exception:
         return None
     return None
-

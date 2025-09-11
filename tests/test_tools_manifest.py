@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from tools import generate_manifests as gen
@@ -24,4 +23,3 @@ def test_generate_manifests(tmp_path, monkeypatch):
     assert openapi.exists()
     otext = openapi.read_text()
     assert "myapp.azurewebsites.net" in otext and "api://11111111-1111-1111-1111-111111111111" in otext
-

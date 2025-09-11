@@ -21,7 +21,7 @@ def _check_license() -> None:
     if not key:
         logger.warning("License enforcement enabled but no LEFTTURN_LICENSE_KEY set")
         return
-        
+
     digest = hashlib.sha256(key.encode()).hexdigest()
     if digest != _EXPECTED_LICENSE_HASH:
         raise RuntimeError("Invalid license key")

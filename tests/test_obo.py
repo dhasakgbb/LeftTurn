@@ -1,5 +1,3 @@
-import os
-
 from src.services import obo as obo_mod
 
 
@@ -30,4 +28,3 @@ def test_exchange_obo_for_graph_missing_env_returns_none(monkeypatch):
     monkeypatch.setattr(obo_mod, "msal", type("_M", (), {"ConfidentialClientApplication": object}))
     out = obo_mod.exchange_obo_for_graph("USER_TOKEN")
     assert out is None
-

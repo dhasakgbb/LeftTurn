@@ -33,8 +33,12 @@ def generate_manifest() -> None:
     bot_id = require("TEAMS_BOT_APP_ID")
     version = os.getenv("APP_VERSION", "0.1.0")
 
+    schema_url = (
+        "https://developer.microsoft.com/en-us/json-schemas/teams/"
+        "v1.16/MicrosoftTeams.schema.json"
+    )
     manifest = {
-        "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+        "$schema": schema_url,
         "manifestVersion": "1.16",
         "id": bot_id,  # Use bot/app id as package id for simplicity
         "version": version,
@@ -61,8 +65,14 @@ def generate_manifest() -> None:
                     {
                         "scopes": ["personal"],
                         "commands": [
-                            {"title": "Ask Carrier Agent", "description": "Query carrier costs/variance"},
-                            {"title": "Find Clause", "description": "Search contracts"},
+                            {
+                                "title": "Ask Carrier Agent",
+                                "description": "Query carrier costs/variance",
+                            },
+                            {
+                                "title": "Find Clause",
+                                "description": "Search contracts",
+                            },
                         ],
                     }
                 ],
@@ -91,10 +101,12 @@ def generate_manifest() -> None:
             }
         ],
         "permissions": ["identity", "messageTeamMembers"],
-        "validDomains": [host, f"*.{host.split('.',1)[-1]}"]
+        "validDomains": [host, f"*.{host.split('.', 1)[-1]}"]
     }
 
     out = ROOT / "teams" / "manifest" / "manifest.json"
+    # Ensure output directory exists for test/tooling environments
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(manifest, indent=2))
     print(f"Wrote {out}")
 
@@ -118,4 +130,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -125,7 +125,11 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             )
 
         # Surface user Graph token from EasyAuth (if enabled)
-        graph_token = req.headers.get("x-ms-token-aad-access-token") if hasattr(req, "headers") else None
+        graph_token = (
+            req.headers.get("x-ms-token-aad-access-token")
+            if hasattr(req, "headers")
+            else None
+        )
         orchestrator = _build_orchestrator(graph_token)
         agent = _resolve_chat_agent(req.route_params.get("agent", "domain"), orchestrator)
 
