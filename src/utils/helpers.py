@@ -1,7 +1,7 @@
 import hashlib
 import re
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import uuid
 from datetime import datetime
 
@@ -213,22 +213,19 @@ def get_correlation_id(req) -> str:
         cid = req.headers.get('x-correlation-id')  # type: ignore[attr-defined]
         if cid and isinstance(cid, str) and len(cid) >= 8:
             return cid
-    except Exception:
-        pass
+        logger.warning("Missing or invalid correlation ID; generating a new one.")
+    except Exception as e:
+        logger.warning(f"Failed to retrieve correlation ID: {e}; generating a new one.")
     return str(uuid.uuid4())
 
 class ConfigurationError(Exception):
-    """Custom exception for configuration errors"""
-    pass
+    """Custom exception for configuration errors."""
 
 class ValidationError(Exception):
-    """Custom exception for validation errors"""
-    pass
+    """Custom exception for validation errors."""
 
 class StorageError(Exception):
-    """Custom exception for storage errors"""
-    pass
+    """Custom exception for storage errors."""
 
 class EmailError(Exception):
-    """Custom exception for email errors"""
-    pass
+    """Custom exception for email errors."""
