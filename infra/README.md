@@ -26,7 +26,7 @@ Quick start (Terraform)
 3) terraform apply -var 'env=dev' -var 'location=eastus' -var 'base_name=leftturn'
 
 Seed assets
-- Search index + skillset: run `infra/scripts/seed_search.sh` after deployment.
+- Search data-plane: run `infra/scripts/seed_search.sh` to create data source (Blob), skillset (PII redaction), index, and indexer (scheduled).
 - Fabric SQL views: use files in `fabric/sql/` in your Fabric workspace SQL endpoint.
 - Notebooks: import `notebooks/*.ipynb` into Microsoft Fabric.
 

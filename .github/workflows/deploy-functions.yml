@@ -1,0 +1,43 @@
+name: Deploy Functions
+
+on:
+  workflow_dispatch:
+    inputs:
+      functionApp:
+        description: 'Azure Function App name'
+        required: true
+      python:
+        description: 'Python version'
+        required: true
+        default: '3.10'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ github.event.inputs.python }}
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Install Azure Functions Core Tools
+        run: |
+          npm i -g azure-functions-core-tools@4 --unsafe-perm true
+      - name: Install Python deps
+        run: |
+          pip install -r requirements.txt
+      - name: Publish to Azure Functions
+        run: |
+          func azure functionapp publish "${{ github.event.inputs.functionApp }}" --python

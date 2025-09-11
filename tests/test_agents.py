@@ -129,3 +129,42 @@ def test_carrier_and_customer_agents_delegate() -> None:
 
         assert carrier.handle("sql rate") == [{"carrier": "Z"}]
         assert customer.handle("sql rate") == [{"carrier": "Z"}]
+
+
+def test_orchestrator_citations_structured() -> None:
+    with responses.RequestsMock() as rsps:
+        rsps.add(
+            "POST",
+            "https://fabric.test/sql",
+            json={"rows": [{"carrier": "X", "overbilled": True}]},
+        )
+        structured = StructuredDataAgent(FabricDataAgent("https://fabric.test", token="T"))
+        unstructured = UnstructuredDataAgent(SearchService("https://search.test", "contracts", api_key="K"))
+        orch = OrchestratorAgent(structured, unstructured)
+
+        payload = orch.handle_with_citations("invoice variance for carrier X")
+
+        assert payload["tool"] == "fabric_sql"
+        assert isinstance(payload.get("citations"), list)
+        assert any("sql" in c for c in payload["citations"][0])
+
+
+def test_orchestrator_citations_unstructured() -> None:
+    with responses.RequestsMock() as rsps:
+        rsps.add(
+            "POST",
+            (
+                "https://search.test/indexes/contracts/docs/search"
+                "?api-version=2021-04-30-Preview"
+            ),
+            json={"value": [{"content": "C7.4 minimum charge applies."}]},
+        )
+        structured = StructuredDataAgent(FabricDataAgent("https://fabric.test", token="T"))
+        unstructured = UnstructuredDataAgent(SearchService("https://search.test", "contracts", api_key="K"))
+        orch = OrchestratorAgent(structured, unstructured)
+
+        payload = orch.handle_with_citations("what does clause 7.4 say?")
+
+        assert payload["tool"] == "ai_search"
+        assert len(payload["citations"]) >= 1
+        assert "excerpt" in payload["citations"][0]

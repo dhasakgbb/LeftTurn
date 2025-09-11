@@ -1,15 +1,21 @@
-name: ci
-on: [push, pull_request]
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: pip install -r requirements.txt
-      - run: pip install ruff mypy pytest pre-commit
-      - run: pre-commit run --all-files
-      - run: python tools/repo_sanity.py
-      - run: pytest
-
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          bash tools/setup_cloud.sh
+      - name: Run tests
+        run: |
+          bash tools/run_tests.sh

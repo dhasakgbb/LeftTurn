@@ -1,0 +1,7 @@
+{
+  "name": "contracts-ds",
+  "type": "azureblob",
+  "credentials": { "connectionString": "<CONNECTION_STRING>" },
+  "container": { "name": "<CONTAINER>" },
+  "dataDeletionDetectionPolicy": { "@odata.type": "#Microsoft.Azure.Search.SoftDeleteColumnDeletionDetectionPolicy", "softDeleteColumnName": "isDeleted", "softDeleteMarkerValue": "true" }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "contracts-indexer",
+  "dataSourceName": "contracts-ds",
+  "targetIndexName": "contracts",
+  "skillsetName": "contracts-skillset",
+  "schedule": { "interval": "PT2H" },
+  "parameters": {
+    "maxFailedItems": 10,
+    "maxFailedItemsPerBatch": 5,
+    "configuration": { "failOnUnsupportedContentType": false, "dataToExtract": "contentAndMetadata" }
+  }
+}
