@@ -169,6 +169,25 @@ def test_claims_agent_delegates() -> None:
         assert claims.handle("sql rate") == [{"carrier": "Z"}]
 
 
+def test_claims_agent_delegates() -> None:
+    with responses.RequestsMock() as rsps:
+        rsps.add(
+            "POST",
+            "https://fabric.test/sql",
+            json={"rows": [{"carrier": "Z"}]},
+        )
+        structured = StructuredDataAgent(
+            FabricDataAgent("https://fabric.test", token="T")
+        )
+        unstructured = UnstructuredDataAgent(
+            SearchService("https://search.test", "contracts", api_key="K")
+        )
+        orchestrator = OrchestratorAgent(structured, unstructured)
+        claims = ClaimsAgent(orchestrator)
+
+        assert claims.handle("sql rate") == [{"carrier": "Z"}]
+
+
 def test_orchestrator_citations_structured() -> None:
     with responses.RequestsMock() as rsps:
         rsps.add(
