@@ -1,0 +1,340 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.37.4.10188",
+      "templateHash": "1754714909525677474"
+    }
+  },
+  "parameters": {
+    "env": {
+      "type": "string",
+      "metadata": {
+        "description": "Deployment environment tag, e.g., dev/test/prod"
+      }
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure location, e.g., eastus"
+      }
+    },
+    "baseName": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 24,
+      "metadata": {
+        "description": "Base name prefix for resources (letters and numbers only)"
+      }
+    },
+    "enableEasyAuth": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable EasyAuth (App Service Authentication) with AAD"
+      }
+    },
+    "aadTenantId": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "AAD tenant Id for EasyAuth"
+      }
+    },
+    "aadAllowedAudience": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Allowed audience (App registration client ID or Application ID URI)"
+      }
+    },
+    "enableApim": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Deploy API Management (APIM) and import Function App endpoints"
+      }
+    },
+    "apimSkuName": {
+      "type": "string",
+      "defaultValue": "Consumption",
+      "metadata": {
+        "description": "APIM SKU (Consumption or Developer recommended for dev)"
+      }
+    }
+  },
+  "variables": {
+    "storageName": "[toLower(replace(format('{0}stor', parameters('baseName')), '-', ''))]",
+    "funcName": "[toLower(format('{0}-func-{1}', parameters('baseName'), parameters('env')))]",
+    "cosmosName": "[toLower(replace(format('{0}-cosmos', parameters('baseName')), '_', ''))]",
+    "searchName": "[toLower(replace(format('{0}-search', parameters('baseName')), '_', ''))]",
+    "commName": "[toLower(replace(format('{0}-comm', parameters('baseName')), '_', ''))]",
+    "cogName": "[toLower(replace(format('{0}-cog', parameters('baseName')), '_', ''))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[variables('storageName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "allowBlobPublicAccess": false,
+        "minimumTlsVersion": "TLS1_2"
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2023-04-15",
+      "name": "[variables('cosmosName')]",
+      "location": "[parameters('location')]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "locations": [
+          {
+            "locationName": "[parameters('location')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ],
+        "databaseAccountOfferType": "Standard",
+        "enableFreeTier": true,
+        "capabilities": [
+          {
+            "name": "EnableServerless"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2023-04-15",
+      "name": "[format('{0}/validation-tracking', variables('cosmosName'))]",
+      "properties": {
+        "resource": {
+          "id": "validation-tracking"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2023-04-15",
+      "name": "[format('{0}/{1}/file-metadata', variables('cosmosName'), format('{0}/validation-tracking', variables('cosmosName')))]",
+      "properties": {
+        "resource": {
+          "id": "file-metadata",
+          "partitionKey": {
+            "paths": [
+              "/file_id"
+            ],
+            "kind": "Hash"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', split(format('{0}/validation-tracking', variables('cosmosName')), '/')[0], split(format('{0}/validation-tracking', variables('cosmosName')), '/')[1])]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2023-04-15",
+      "name": "[format('{0}/{1}/validation-results', variables('cosmosName'), format('{0}/validation-tracking', variables('cosmosName')))]",
+      "properties": {
+        "resource": {
+          "id": "validation-results",
+          "partitionKey": {
+            "paths": [
+              "/file_id"
+            ],
+            "kind": "Hash"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', split(format('{0}/validation-tracking', variables('cosmosName')), '/')[0], split(format('{0}/validation-tracking', variables('cosmosName')), '/')[1])]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2023-04-15",
+      "name": "[format('{0}/{1}/email-notifications', variables('cosmosName'), format('{0}/validation-tracking', variables('cosmosName')))]",
+      "properties": {
+        "resource": {
+          "id": "email-notifications",
+          "partitionKey": {
+            "paths": [
+              "/file_id"
+            ],
+            "kind": "Hash"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', split(format('{0}/validation-tracking', variables('cosmosName')), '/')[0], split(format('{0}/validation-tracking', variables('cosmosName')), '/')[1])]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2023-04-15",
+      "name": "[format('{0}/{1}/change-tracking', variables('cosmosName'), format('{0}/validation-tracking', variables('cosmosName')))]",
+      "properties": {
+        "resource": {
+          "id": "change-tracking",
+          "partitionKey": {
+            "paths": [
+              "/file_id"
+            ],
+            "kind": "Hash"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', split(format('{0}/validation-tracking', variables('cosmosName')), '/')[0], split(format('{0}/validation-tracking', variables('cosmosName')), '/')[1])]"
+      ]
+    },
+    {
+      "type": "Microsoft.Communication/communicationServices",
+      "apiVersion": "2023-03-31",
+      "name": "[variables('commName')]",
+      "location": "Global",
+      "properties": {
+        "dataLocation": "United States"
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('cogName')]",
+      "location": "[parameters('location')]",
+      "kind": "FormRecognizer",
+      "sku": {
+        "name": "S0"
+      },
+      "properties": {
+        "customSubDomainName": "[toLower(format('{0}{1}docint', parameters('baseName'), parameters('env')))]"
+      }
+    },
+    {
+      "type": "Microsoft.Search/searchServices",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('searchName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "basic"
+      },
+      "properties": {
+        "replicaCount": 1,
+        "partitionCount": 1,
+        "hostingMode": "default",
+        "publicNetworkAccess": "enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2022-03-01",
+      "name": "[format('{0}-plan-{1}', parameters('baseName'), parameters('env'))]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic"
+      },
+      "kind": "linux"
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2022-03-01",
+      "name": "[variables('funcName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp,linux",
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', format('{0}-plan-{1}', parameters('baseName'), parameters('env')))]",
+        "siteConfig": {
+          "linuxFxVersion": "Python|3.10",
+          "authSettingsV2": "[if(parameters('enableEasyAuth'), createObject('platform', createObject('enabled', true()), 'globalValidation', createObject('requireAuthentication', true()), 'identityProviders', createObject('azureActiveDirectory', createObject('enabled', true(), 'registration', createObject('openIdIssuer', format('https://login.microsoftonline.com/{0}/v2.0', parameters('aadTenantId'))), 'validation', createObject('allowedAudiences', createArray(parameters('aadAllowedAudience'))))), 'login', createObject('tokenStore', createObject('enabled', true()))), null())]",
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-01-01').keys[0].value]"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "python"
+            },
+            {
+              "name": "AZURE_STORAGE_CONNECTION_STRING",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix=core.windows.net', variables('storageName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2023-01-01').keys[0].value)]"
+            },
+            {
+              "name": "AZURE_COSMOSDB_CONNECTION_STRING",
+              "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName')), '2023-04-15').primaryMasterKey]"
+            },
+            {
+              "name": "AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING",
+              "value": "[listKeys(resourceId('Microsoft.Communication/communicationServices', variables('commName')), '2023-03-31').primaryConnectionString]"
+            }
+          ]
+        },
+        "httpsOnly": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Communication/communicationServices', variables('commName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosName'))]",
+        "[resourceId('Microsoft.Web/serverfarms', format('{0}-plan-{1}', parameters('baseName'), parameters('env')))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('enableApim')]",
+      "type": "Microsoft.ApiManagement/service",
+      "apiVersion": "2023-05-01-preview",
+      "name": "[format('{0}-apim-{1}', parameters('baseName'), parameters('env'))]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('apimSkuName')]",
+        "capacity": 0
+      },
+      "properties": {
+        "publisherName": "leftturn",
+        "publisherEmail": "admin@example.com"
+      }
+    }
+  ],
+  "outputs": {
+    "functionAppName": {
+      "type": "string",
+      "value": "[variables('funcName')]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[variables('storageName')]"
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "value": "[variables('cosmosName')]"
+    },
+    "searchServiceName": {
+      "type": "string",
+      "value": "[variables('searchName')]"
+    },
+    "communicationServiceName": {
+      "type": "string",
+      "value": "[variables('commName')]"
+    },
+    "cognitiveServicesName": {
+      "type": "string",
+      "value": "[variables('cogName')]"
+    }
+  }
+}

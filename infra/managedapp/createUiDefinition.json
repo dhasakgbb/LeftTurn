@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.json#",
+  "handler": "Microsoft.Azure.CreateUIDefinition",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "basics": [
+      {
+        "name": "workspaceName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Workspace Name",
+        "placeholder": "leftturn",
+        "toolTip": "Base name for all resources",
+        "constraints": {
+          "required": true,
+          "regex": "^[a-zA-Z0-9]{3,24}$",
+          "validationMessage": "3-24 alphanumeric characters"
+        }
+      },
+      {
+        "name": "enableEasyAuth",
+        "type": "Microsoft.Common.CheckBox",
+        "label": "Enable EasyAuth",
+        "defaultValue": false
+      },
+      {
+        "name": "aadTenantId",
+        "type": "Microsoft.Common.TextBox",
+        "label": "AAD Tenant ID",
+        "visible": "[basics('enableEasyAuth')]",
+        "constraints": {
+          "regex": "^[0-9a-fA-F-]{36}$",
+          "validationMessage": "Enter a valid GUID"
+        }
+      },
+      {
+        "name": "aadAllowedAudience",
+        "type": "Microsoft.Common.TextBox",
+        "label": "AAD Allowed Audience",
+        "visible": "[basics('enableEasyAuth')]",
+        "placeholder": "Client ID or Application ID URI"
+      }
+    ],
+    "outputs": {
+      "baseName": "[basics('workspaceName')]",
+      "enableEasyAuth": "[basics('enableEasyAuth')]",
+      "aadTenantId": "[basics('aadTenantId')]",
+      "aadAllowedAudience": "[basics('aadAllowedAudience')]",
+      "env": "prod",
+      "location": "[location()]",
+      "enableApim": false,
+      "apimSkuName": "Consumption"
+    }
+  }
+}
