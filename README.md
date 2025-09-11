@@ -135,7 +135,7 @@ Notes:
 
 ## Key Endpoints
 
-- `POST /api/agents/{agent}/ask` — chat to `domain|carrier|customer` agents with `{ "query": "..." }`.
+- `POST /api/agents/{agent}/ask` — chat to `domain|carrier|customer` agents with `{ "query": "..." }`. Returns `{ tool, result, citations }` for evidence-friendly rendering.
 - `POST /api/process` — upload and validate an Excel file (base64 payload).
 - `GET /api/status/{file_id}` — check processing and latest validation.
 - `POST /api/notify` — send email notifications for a validation.
@@ -153,6 +153,14 @@ Notes:
 
 - Document Intelligence: parse carrier PDFs into structured tables feeding Fabric.
 - Power BI: connect to curated Delta tables for dashboards; link BI bookmarks from agent responses.
+
+## Infrastructure-as-Code
+
+- Bicep templates: `infra/bicep/main.bicep` (RG scope). Creates Storage, Cosmos (serverless), Communication Services, Cognitive Services (Form Recognizer), Azure AI Search, Function App (Linux/Python). Outputs resource names.
+- Terraform: `infra/terraform/` equivalent provisioning using `azurerm` and `azapi` (preview Fabric workspace).
+- Search data-plane seeding: `infra/scripts/seed_search.sh` creates the `contracts` index and a PII‑redacting skillset using REST.
+- Fabric SQL views: `fabric/sql/create_views_carrier.sql` seeds curated views.
+- Sample notebooks: `notebooks/*.ipynb` ready to import into Fabric for ERP, carrier structured, and contracts processing.
 
 ## License
 

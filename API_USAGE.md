@@ -297,8 +297,12 @@ Response:
 ```json
 {
   "agent": "CarrierAgent",
+  "tool": "fabric_sql",
   "result": [
     { "carrier": "X", "overbilled": true, "variance": 1243.55 }
+  ],
+  "citations": [
+    { "type": "table", "source": "fabric", "sql": "SELECT ..." }
   ]
 }
 ```

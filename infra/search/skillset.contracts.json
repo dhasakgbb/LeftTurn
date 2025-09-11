@@ -1,0 +1,26 @@
+{
+  "name": "contracts-skillset",
+  "description": "Extract text and redact PII for contract documents.",
+  "skills": [
+    {
+      "@odata.type": "#Microsoft.Skills.Text.OcrSkill",
+      "context": "/document/pages/*",
+      "defaultLanguageCode": "en",
+      "inputs": [ { "name": "image", "source": "/document/pages/*/image" } ],
+      "outputs": [ { "name": "text", "targetName": "ocrText" } ]
+    },
+    {
+      "@odata.type": "#Microsoft.Skills.Text.EntityRecognitionSkill",
+      "context": "/document",
+      "categories": [ "Person", "Email", "PhoneNumber" ],
+      "inputs": [ { "name": "text", "source": "/document/pages/*/ocrText" } ],
+      "outputs": [ { "name": "entities", "targetName": "entities" } ]
+    },
+    {
+      "@odata.type": "#Microsoft.Skills.Text.PiiDetectionSkill",
+      "context": "/document",
+      "inputs": [ { "name": "text", "source": "/document/pages/*/ocrText" } ],
+      "outputs": [ { "name": "text", "targetName": "redactedText" } ]
+    }
+  ]
+}

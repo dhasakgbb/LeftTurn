@@ -28,6 +28,37 @@ class OrchestratorAgent:
             return self._structured_agent.query(query)
         return self._unstructured_agent.search(query)
 
+    def handle_with_citations(self, query: str) -> dict:
+        """Return tool result with lightweight citations and routing metadata.
+
+        Structure:
+        {
+          "tool": "fabric_sql|ai_search|graph",
+          "result": <tool result>,
+          "citations": [ { ... } ]
+        }
+        """
+        if self._graph_service and self._needs_graph(query):
+            data = self._graph_service.get_resource(query)
+            return {
+                "tool": "graph",
+                "result": data,
+                "citations": [{"type": "graph", "query": query, "count": len(data)}],
+            }
+        if self._is_structured_query(query):
+            data = self._structured_agent.query(query)
+            return {
+                "tool": "fabric_sql",
+                "result": data,
+                "citations": [{"type": "table", "source": "fabric", "sql": query}],
+            }
+        data = self._unstructured_agent.search(query)
+        citations = [
+            {"type": "passage", "rank": i + 1, "excerpt": p[:200]}
+            for i, p in enumerate(data[:5])
+        ]
+        return {"tool": "ai_search", "result": data, "citations": citations}
+
     @staticmethod
     def _is_structured_query(query: str) -> bool:
         keywords = {"invoice", "table", "rate", "sql"}

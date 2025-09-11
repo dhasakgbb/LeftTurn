@@ -111,7 +111,8 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
         agent = _resolve_chat_agent(req.route_params.get("agent", "domain"), orchestrator)
 
         logger.info(f"[{cid}] Agent ask to {agent.__class__.__name__}")
-        result = agent.handle(query)
+        # Prefer enriched result with evidence when available
+        result_payload = orchestrator.handle_with_citations(query)
 
         finished = datetime.now()
         log_function_execution(
@@ -123,7 +124,7 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
         )
 
         return func.HttpResponse(
-            json.dumps({"agent": agent.__class__.__name__, "result": result}),
+            json.dumps({"agent": agent.__class__.__name__, **result_payload}),
             status_code=200,
             headers={"Content-Type": "application/json"},
         )
@@ -136,4 +137,3 @@ async def agent_ask(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
             headers={"Content-Type": "application/json"},
         )
-

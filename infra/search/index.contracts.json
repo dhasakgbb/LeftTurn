@@ -1,0 +1,16 @@
+{
+  "name": "contracts",
+  "fields": [
+    { "name": "id", "type": "Edm.String", "key": true, "searchable": false },
+    { "name": "carrier", "type": "Edm.String", "searchable": true, "filterable": true, "sortable": true, "facetable": true },
+    { "name": "serviceLevel", "type": "Edm.String", "searchable": true, "filterable": true, "sortable": true, "facetable": true },
+    { "name": "effectiveDate", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true, "facetable": true },
+    { "name": "file", "type": "Edm.String", "searchable": false, "filterable": true },
+    { "name": "page", "type": "Edm.Int32", "filterable": true, "sortable": true },
+    { "name": "clauseId", "type": "Edm.String", "searchable": false, "filterable": true, "sortable": true },
+    { "name": "text", "type": "Edm.String", "searchable": true, "analyzer": "en.microsoft" },
+    { "name": "embedding", "type": "Collection(Edm.Single)", "searchable": true, "vectorSearchDimensions": 1536, "vectorSearchProfile": "default" }
+  ],
+  "semantic": { "configurations": [ { "name": "default", "prioritizedFields": { "contentFields": [ { "fieldName": "text" } ] } } ] },
+  "vectorSearch": { "algorithms": [ { "name": "hnsw", "kind": "hnsw" } ], "profiles": [ { "name": "default", "algorithm": "hnsw" } ] }
+}
