@@ -1,8 +1,9 @@
-import responses
-
+import pytest
 from src.agents import OrchestratorAgent, StructuredDataAgent, UnstructuredDataAgent
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
+
+responses = pytest.importorskip("responses")
 
 
 def test_orchestrator_unstructured_uses_semantic_when_configured(monkeypatch):
@@ -25,4 +26,3 @@ def test_orchestrator_unstructured_uses_semantic_when_configured(monkeypatch):
         orch = OrchestratorAgent(structured, unstructured)
         out = orch.handle("what does clause 7.4 say?")
         assert out == ["Clause text"]
-

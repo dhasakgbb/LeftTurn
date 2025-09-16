@@ -1,4 +1,9 @@
-import azure.functions as func
+from __future__ import annotations
+
+try:  # pragma: no cover - exercised in Azure host
+    import azure.functions as func
+except ModuleNotFoundError:  # pragma: no cover - local test shim
+    from src.utils.azure_functions_stub import functions as func
 import json
 import os
 import logging

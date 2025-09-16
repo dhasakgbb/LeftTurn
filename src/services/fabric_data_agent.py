@@ -12,7 +12,10 @@ from __future__ import annotations
 import os
 from typing import List, Any
 
-import requests
+try:  # pragma: no cover
+    import requests
+except ModuleNotFoundError:  # pragma: no cover
+    from src.utils.requests_stub import requests
 from contextlib import contextmanager
 from src.utils.constants import USER_AGENT
 

@@ -1,4 +1,7 @@
-from pydantic import BaseModel, Field
+try:  # pragma: no cover
+    from pydantic import BaseModel
+except ModuleNotFoundError:  # pragma: no cover
+    from src.utils.pydantic_stub import BaseModel
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from enum import Enum

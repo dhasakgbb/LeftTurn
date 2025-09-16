@@ -42,10 +42,12 @@ Everything runs in the customer’s Microsoft 365/Azure tenant. Heavy data and A
 ## This Repo’s Mapping
 - Orchestrator & agents: `src/agents/`
 - Tool clients: `src/services/` (Fabric, Search, Graph)
-- HTTP endpoints: `src/functions/` (agent gateway, processing, validation, email, tracking)
+- HTTP endpoints: `src/functions/` (agent gateway, processing, validation, email, tracking, Teams relay)
 - Curated SQL: `fabric/sql/`
 - Notebooks: `notebooks/`
 - Infra: `infra/`
+
+Each HTTP entry point is defined as an Azure Functions blueprint (`agent_gateway`, `teams_relay`, `excel_processor`, `data_validator`, `change_tracker`, `email_sender`). The gateway exposes `/api/agents/{agent}/ask` for Copilot Studio, while the relay returns a Teams-ready Adaptive Card from `/api/teams/ask`.
 
 ## Guardrails
 - Read-only data access for agents; use parameterized SQL against approved views.

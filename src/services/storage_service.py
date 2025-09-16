@@ -366,13 +366,20 @@ class StorageService:
             
             # Update with new information
             existing_item['updated_file_hash'] = updated_file_hash
-            existing_item['change_timestamp'] = datetime.now().isoformat()
+            existing_item['change_timestamp'] = datetime.now(timezone.utc).isoformat()
             existing_item['verified'] = True
             
             if change_description:
                 existing_item['change_description'] = change_description
             
-            container.replace_item(existing_item['id'], existing_item)
+            partition = file_id or existing_item.get('file_id')
+            if not partition:
+                logger.error(f"Missing partition key for tracking record {tracking_id}")
+                return False
+
+            container.replace_item(
+                existing_item['id'], existing_item, partition_key=partition
+            )
             logger.info(f"Change tracking updated: {tracking_id}")
             return True
             

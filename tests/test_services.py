@@ -1,8 +1,9 @@
 import pytest
-import pandas as pd
+from src.models.validation_models import ValidationRule
 from src.services.excel_service import ExcelService
 from src.services.validation_service import ValidationService
-from src.models.validation_models import ValidationRule
+
+pd = pytest.importorskip("pandas")
 
 @pytest.fixture
 def excel_service():

@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import Any
 from datetime import date, timedelta
+import os
 
 from src.agents import router
 from src.services.sql_templates import TEMPLATES
@@ -37,20 +38,7 @@ class OrchestratorAgent:
                 if decision["tool"] == "sql":
                     name = decision["name"]
                     params = decision.get("params", {})
-                    if "@from" not in params or "@to" not in params:
-                        params = {**params, **_infer_time_range(query)}
-                    carrier = extract_param_value(query, "carrier")
-                    sku = extract_param_value(query, "sku")
-                    service = (
-                        extract_param_value(query, "service level")
-                        or extract_param_value(query, "service")
-                    )
-                    if carrier:
-                        params["@carrier"] = carrier
-                    if sku:
-                        params["@sku"] = sku
-                    if service:
-                        params["@service"] = service
+                    params = _prepare_sql_params(query, params)
                     return self._structured_agent.query(name, params)
                 if decision["tool"] == "graph" and self._graph_service:
                     return self._graph_service.get_resource(query)
@@ -95,20 +83,7 @@ class OrchestratorAgent:
                 if decision["tool"] == "sql":
                     template = decision["name"]
                     params = decision.get("params", {})
-                    if "@from" not in params or "@to" not in params:
-                        params = {**params, **_infer_time_range(query)}
-                    carrier = extract_param_value(query, "carrier")
-                    sku = extract_param_value(query, "sku")
-                    service = (
-                        extract_param_value(query, "service level")
-                        or extract_param_value(query, "service")
-                    )
-                    if carrier:
-                        params["@carrier"] = carrier
-                    if sku:
-                        params["@sku"] = sku
-                    if service:
-                        params["@service"] = service
+                    params = _prepare_sql_params(query, params)
                     data = self._structured_agent.query(template, params)
                     views = _extract_views_from_template(template)
                     return {
@@ -184,6 +159,40 @@ class OrchestratorAgent:
         keywords = {"email", "calendar", "file", "meeting"}
         text = query.lower()
         return any(k in text for k in keywords)
+
+
+def _prepare_sql_params(query: str, params: dict[str, Any] | None) -> dict[str, Any]:
+    """Merge inferred/default filters into SQL parameter dictionary."""
+    params = dict(params or {})
+    params = _ensure_time_range(params, query)
+    carrier = extract_param_value(query, "carrier")
+    sku = extract_param_value(query, "sku")
+    service = (
+        extract_param_value(query, "service level")
+        or extract_param_value(query, "service")
+    )
+    if carrier and "@carrier" not in params:
+        params["@carrier"] = carrier
+    if sku and "@sku" not in params:
+        params["@sku"] = sku
+    if service and "@service" not in params:
+        params["@service"] = service
+    return params
+
+
+def _ensure_time_range(params: dict[str, Any], query: str) -> dict[str, Any]:
+    """Ensure @from/@to parameters exist, inferring or defaulting when absent."""
+    has_from = bool(params.get("@from"))
+    has_to = bool(params.get("@to"))
+    if has_from and has_to:
+        return params
+    inferred = _infer_time_range(query)
+    if not inferred:
+        inferred = _default_time_range()
+    merged = dict(params)
+    for key, value in inferred.items():
+        merged.setdefault(key, value)
+    return merged
 
 
 def _extract_views_from_template(template: str) -> list[str]:
@@ -271,3 +280,20 @@ def _infer_time_range(query: str) -> dict:
         return {"@from": _fmt(start), "@to": _fmt(end)}
 
     return {}
+
+
+def _default_time_range() -> dict[str, str]:
+    """Return a safe default look-back window when the query lacks dates."""
+    try:
+        days = int(os.getenv("AGENT_DEFAULT_RANGE_DAYS", "90"))
+    except Exception:
+        days = 90
+    if days <= 0:
+        days = 90
+    today = date.today()
+    start = today - timedelta(days=days)
+
+    def _fmt(d: date) -> str:
+        return d.strftime("%Y-%m-%d")
+
+    return {"@from": _fmt(start), "@to": _fmt(today)}

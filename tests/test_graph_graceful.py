@@ -1,9 +1,10 @@
-import responses
-
+import pytest
 from src.agents import OrchestratorAgent, StructuredDataAgent, UnstructuredDataAgent
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.graph_service import GraphService
 from src.services.search_service import SearchService
+
+responses = pytest.importorskip("responses")
 
 
 def test_graph_graceful_error_returns_empty():
@@ -17,4 +18,3 @@ def test_graph_graceful_error_returns_empty():
         orch = OrchestratorAgent(structured, unstructured, graph)
         out = orch.handle("show recent email")
         assert out == []
-

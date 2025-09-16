@@ -14,7 +14,7 @@ class _FakeContainer:
     def read_item(self, id, partition_key=None):
         return self.items[id]
 
-    def replace_item(self, id, item):
+    def replace_item(self, id, item, **_kwargs):
         self.items[id] = item
 
     def query_items(self, query, parameters=None, enable_cross_partition_query=None):

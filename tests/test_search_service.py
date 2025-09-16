@@ -1,5 +1,7 @@
-import responses
+import pytest
 from src.services.search_service import SearchService
+
+responses = pytest.importorskip("responses")
 
 
 def test_search_service_uses_api_version_env(monkeypatch):

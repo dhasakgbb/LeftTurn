@@ -1,3 +1,4 @@
+import pytest
 from src.agents import (
     CarrierAgent,
     DomainAgent,
@@ -7,13 +8,12 @@ from src.agents import (
     StructuredDataAgent,
     UnstructuredDataAgent,
 )
-import responses
-import pytest
-
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
 from src.services.sql_templates import TEMPLATES
+
+responses = pytest.importorskip("responses")
 
 
 def test_orchestrator_routes_structured_queries() -> None:

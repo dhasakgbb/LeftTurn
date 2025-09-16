@@ -1,10 +1,17 @@
+from __future__ import annotations
+
 import os
-import pandas as pd
 import hashlib
 import io
 import logging
 from typing import Dict, List, Any, Tuple
 from datetime import datetime, timezone
+
+try:  # pragma: no cover
+    import pandas as pd
+except ModuleNotFoundError:  # pragma: no cover
+    pd = None  # type: ignore
+
 from src.models.validation_models import ExcelFileMetadata
 from src.utils.helpers import validate_email_format
 
@@ -17,6 +24,11 @@ class ExcelService:
         # Load supported types from env, default to xlsx only (openpyxl)
         env_types = os.getenv('SUPPORTED_FILE_TYPES', 'xlsx')
         self.supported_formats = [f".{ext.strip().lower()}" for ext in env_types.split(',') if ext.strip()]
+
+    @staticmethod
+    def _require_pandas():
+        if pd is None:  # pragma: no cover - exercised when pandas missing
+            raise RuntimeError("pandas is required for Excel operations. Install it with 'pip install pandas'.")
     
     def parse_excel_file(self, file_data: bytes, filename: str) -> Tuple[Dict[str, pd.DataFrame], ExcelFileMetadata]:
         """
@@ -29,6 +41,7 @@ class ExcelService:
         Returns:
             Tuple of (sheet_data_dict, metadata)
         """
+        self._require_pandas()
         try:
             # Create file-like object from bytes
             file_buffer = io.BytesIO(file_data)
@@ -64,6 +77,7 @@ class ExcelService:
     def extract_data_for_validation(self, sheets_dict: Dict[str, pd.DataFrame], 
                                   target_sheet: str = None) -> pd.DataFrame:
         """
+        self._require_pandas()
         Extract data from specific sheet or first sheet for validation
         
         Args:
@@ -100,6 +114,7 @@ class ExcelService:
         Returns:
             Cleaned DataFrame
         """
+        self._require_pandas()
         # Strip whitespace from string columns
         string_columns = df.select_dtypes(include=['object']).columns
         df[string_columns] = df[string_columns].astype(str).apply(lambda x: x.str.strip())

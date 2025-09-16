@@ -1,8 +1,9 @@
-import responses
-
+import pytest
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
+
+responses = pytest.importorskip("responses")
 
 
 def test_fabric_retries_then_succeeds():
@@ -63,4 +64,3 @@ def test_graph_retries_then_succeeds():
         graph = GraphService(token="T", endpoint="https://graph.test")
         out = graph.get_resource("q")
         assert out == []
-

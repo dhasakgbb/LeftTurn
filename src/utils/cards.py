@@ -7,13 +7,23 @@ def _mk_citation_block(citations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     items: List[Dict[str, Any]] = []
     for c in citations[:2]:
         if c.get("type") == "table":
-            items.append({
-                "type": "TextBlock",
-                "text": f"SQL: {c.get('sql', '')}",
-                "wrap": True,
-                "spacing": "Small",
-                "isSubtle": True,
-            })
+            template = c.get("template")
+            views = c.get("views")
+            if views:
+                label = f"Views: {', '.join(views)}"
+            elif template:
+                label = f"Template: {template}"
+            else:
+                label = "Fabric SQL"
+            items.append(
+                {
+                    "type": "TextBlock",
+                    "text": label,
+                    "wrap": True,
+                    "spacing": "Small",
+                    "isSubtle": True,
+                }
+            )
         else:
             excerpt = c.get("excerpt", "")
             if excerpt:

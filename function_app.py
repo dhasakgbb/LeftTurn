@@ -1,4 +1,7 @@
-import azure.functions as func
+try:  # pragma: no cover
+    import azure.functions as func
+except ModuleNotFoundError:  # pragma: no cover
+    from src.utils.azure_functions_stub import functions as func
 import logging
 from src.functions.excel_processor import excel_processor_bp
 from src.functions.data_validator import data_validator_bp

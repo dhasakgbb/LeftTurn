@@ -1,7 +1,8 @@
-import responses
-
+import pytest
 from src.services.fabric_data_agent import FabricDataAgent
 import src.services.fabric_data_agent as fmod
+
+responses = pytest.importorskip("responses")
 
 
 def test_fabric_odbc_param_binding_order(monkeypatch):

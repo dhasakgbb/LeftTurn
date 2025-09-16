@@ -1,8 +1,9 @@
-import responses
-
+import pytest
 from src.services.fabric_data_agent import FabricDataAgent
 from src.services.search_service import SearchService
 from src.services.graph_service import GraphService
+
+responses = pytest.importorskip("responses")
 
 
 def test_fabric_headers_include_user_agent_and_correlation(monkeypatch):
@@ -60,4 +61,3 @@ def test_graph_headers_include_user_agent_and_correlation(monkeypatch):
             token="T", endpoint="https://graph.test", extra_headers={"X-Correlation-ID": "CID-3"}
         )
         graph.get_resource("q")
-

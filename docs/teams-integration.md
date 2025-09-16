@@ -54,7 +54,8 @@ POST /api/agents/{agent}/ask
 * **Responses**
 
   * `format=card`: returns an Adaptive Card JSON payload
-  * otherwise: structured JSON with evidence and optional Power BI link
+  * otherwise: structured JSON with evidence (`result`, `citations`, optional `powerBiLink`)
+  * For all variants the orchestrator returns the raw tool payloads so Teams cards can cite the exact SQL rows or contract passages.
 
 ---
 
@@ -64,7 +65,8 @@ POST /api/agents/{agent}/ask
 POST /api/teams/ask
 ```
 
-* Always returns an Adaptive Card regardless of format.
+* Always returns an Adaptive Card regardless of format, using the same orchestrator logic as `/api/agents/{agent}/ask`.
+* Implementation lives in `src/functions/teams_relay/__init__.py` and forwards the EasyAuth-provided user token (when present) to `_build_orchestrator` for Microsoft Graph calls.
 
 ---
 
@@ -199,4 +201,3 @@ POST /api/compare          → compare files
 * Managed Identity configured if calling other Azure resources.
 * Copilot Studio Agent + Action configured.
 * Optional: custom Teams app manifest deployed.
-

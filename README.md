@@ -4,6 +4,8 @@
 
 LeftTurn delivers a production‑ready logistics intelligence stack that reconciles carrier contracts, invoices, tracking and ERP data. It exposes curated tables for analytics and powers chat agents in Microsoft 365 with retrieval‑augmented answers backed by verifiable evidence.
 
+Use this repository to run the full solution locally, validate changes with automated tests, and deploy the Azure Function app plus Fabric/Search assets into your tenant.
+
 ## Table of Contents
 
 - [Features](#features)
@@ -11,6 +13,7 @@ LeftTurn delivers a production‑ready logistics intelligence stack that reconci
 - [End-to-End Flow](#end-to-end-flow)
 - [Fabric Backbone and Data Model](#fabric-backbone-and-data-model)
 - [Development Setup](#development-setup)
+- [Testing & QA](#testing--qa)
 - [Deployment](#deployment)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
@@ -62,13 +65,13 @@ LeftTurn delivers a production‑ready logistics intelligence stack that reconci
 - Azure Functions Core Tools v4
 - Azure subscription with: Storage, Cosmos DB, Communication Services, AI Search, Microsoft Fabric (for SQL endpoint), and optional Microsoft Graph app registration.
 
-### Installation
+### Install dependencies
 
 ```bash
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
-### Configuration
+### Create your `.env`
 
 Copy `.env.example` to `.env` and configure your Azure settings:
 
@@ -76,7 +79,9 @@ Copy `.env.example` to `.env` and configure your Azure settings:
 cp .env.example .env
 ```
 
-### Running Locally
+Populate Fabric/Search/Graph/Storage secrets before calling any cloud resources. The Functions app also reads settings from `local.settings.json`; keep it in sync with `.env` when developing locally.
+
+### Run the Functions host
 
 ```bash
 func start
@@ -95,6 +100,14 @@ make seed-search
 ```bash
 make register-views
 ```
+
+## Testing & QA
+
+- **Lint**: `python3 -m flake8`
+- **Unit tests**: `python3 -m pytest -q`
+- **Combined pre-flight**: run both commands before opening a PR; CI expects them to pass.
+
+Pytest currently emits a LibreSSL warning on macOS because the system Python ships with LibreSSL 2.8.3; it is safe to ignore, but if you upgrade to an OpenSSL-backed Python (e.g., via `pyenv`) the warning disappears.
 
 ## Deployment
 
@@ -133,7 +146,7 @@ Deploy to Azure using the provided deployment script:
 ├── .env.example
 └── README.md
 
-See `AGENTS.md` for contributor/agent guidance and `docs/leftturn-architecture.md` for the full architecture write-up with a Mermaid diagram at `docs/diagrams/leftturn-arch.mmd`.
+See `AGENTS.md` for contributor guidance. Additional documentation lives under `docs/` (architecture, Teams integration, marketplace guidance, OpenAPI specs) with the main diagram at `docs/diagrams/leftturn-arch.mmd`.
 ```
 
 ## Configuration
@@ -171,7 +184,7 @@ Notes:
 ## Key Endpoints
 
 - `POST /api/agents/{agent}/ask` — chat to `domain|carrier|customer|claims` agents with `{ "query": "..." }`. Returns `{ tool, result, citations }` and optional `powerBiLink`. Add `?format=card` or `{ "format": "card" }` to receive an Adaptive Card (for Teams).
-- `POST /api/teams/ask` — Teams relay that always returns an Adaptive Card for `{ query, agent }`.
+- `POST /api/teams/ask` — Teams relay that always returns an Adaptive Card for `{ query, agent }` using the orchestrator’s `handle_with_citations` output.
 - `POST /api/process` — upload and validate an Excel file (base64 payload).
 - `GET /api/status/{file_id}` — check processing and latest validation.
 - `POST /api/notify` — send email notifications for a validation.

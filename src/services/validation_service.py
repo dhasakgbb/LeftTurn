@@ -1,4 +1,9 @@
-import pandas as pd
+from __future__ import annotations
+
+try:  # pragma: no cover
+    import pandas as pd
+except ModuleNotFoundError:  # pragma: no cover
+    pd = None  # type: ignore
 import logging
 import os
 from typing import List, Dict, Any, Optional
@@ -22,6 +27,11 @@ class ValidationService:
     def __init__(self):
         self.ai_client = self._initialize_ai_client()
         self.default_rules = self._get_default_validation_rules()
+
+    @staticmethod
+    def _require_pandas():
+        if pd is None:  # pragma: no cover
+            raise RuntimeError("pandas is required for ValidationService. Install it with 'pip install pandas'.")
     
     def _initialize_ai_client(self) -> Optional[ChatCompletionsClient]:
         """Initialize Azure AI client"""
@@ -89,6 +99,7 @@ class ValidationService:
         Returns:
             ValidationResult object
         """
+        self._require_pandas()
         validation_id = f"val_{file_id}_{int(datetime.now(timezone.utc).timestamp())}"
         
         # Combine default and custom rules
